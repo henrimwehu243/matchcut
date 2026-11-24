@@ -11,7 +11,8 @@ import { supabase } from "@/lib/supabase";
 export default function SignupPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,13 +29,22 @@ export default function SignupPage() {
     event.preventDefault();
     setError(null);
     setNotice(null);
+
+    const cleanFirstName = firstName.trim();
+    const cleanLastName = lastName.trim();
+    const cleanFullName = `${cleanFirstName} ${cleanLastName}`.trim();
     const handle = username.trim().toLowerCase();
-    if (!/^[a-z0-9_]{3,20}$/.test(handle)) {
-      setError("Le pseudo doit contenir 3 à 20 lettres minuscules, chiffres ou tirets bas.");
+
+    if (cleanFirstName.length < 2) {
+      setError("Indiquez votre prénom.");
       return;
     }
-    if (fullName.trim().length < 2) {
+    if (cleanLastName.length < 2) {
       setError("Indiquez votre nom.");
+      return;
+    }
+    if (!/^[a-z0-9_]{3,20}$/.test(handle)) {
+      setError("Le pseudo doit contenir 3 à 20 lettres minuscules, chiffres ou tirets bas.");
       return;
     }
     if (password.length < 6) {
@@ -59,7 +69,12 @@ export default function SignupPage() {
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/decider`,
-        data: { username: handle, full_name: fullName.trim() },
+        data: {
+          username: handle,
+          first_name: cleanFirstName,
+          last_name: cleanLastName,
+          full_name: cleanFullName,
+        },
       },
     });
     setBusy(false);
@@ -71,35 +86,76 @@ export default function SignupPage() {
       router.replace("/decider");
       return;
     }
-    setNotice("Compte créé. Confirmez l’email reçu, puis connectez-vous. Votre profil est créé automatiquement.");
+    setNotice("Compte créé. Vous pouvez maintenant vous connecter.");
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-5 py-16">
-      <div className="w-full max-w-md">
+    <main className="grid min-h-screen place-items-center overflow-x-clip px-4 py-12 sm:px-5 sm:py-16">
+      <div className="w-full max-w-md min-w-0">
         <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-500">MatchCut</p>
-        <h1 className="mt-3 font-serif text-5xl tracking-tight text-[#f4f1ea]">Inscription</h1>
+        <h1 className="mt-3 font-serif text-4xl tracking-tight text-[#f4f1ea] sm:text-5xl">Inscription</h1>
         <p className="mt-3 text-sm leading-6 text-zinc-400">Un profil, un pseudo, puis la salle. Rien de plus.</p>
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <label className="block text-sm text-zinc-300">
+            Prénom
+            <input
+              className={`${inputClass} mt-2 text-base sm:text-sm`}
+              required
+              value={firstName}
+              onChange={(event) => setFirstName(event.target.value)}
+            />
+          </label>
+          <label className="block text-sm text-zinc-300">
             Nom
-            <input className={`${inputClass} mt-2`} required value={fullName} onChange={(event) => setFullName(event.target.value)} />
+            <input
+              className={`${inputClass} mt-2 text-base sm:text-sm`}
+              required
+              value={lastName}
+              onChange={(event) => setLastName(event.target.value)}
+            />
           </label>
           <label className="block text-sm text-zinc-300">
             Pseudo
-            <input className={`${inputClass} mt-2`} required value={username} onChange={(event) => setUsername(event.target.value)} placeholder="lena_monte" />
+            <input
+              className={`${inputClass} mt-2 text-base sm:text-sm`}
+              required
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="lena_monte"
+            />
           </label>
           <label className="block text-sm text-zinc-300">
             Email
-            <input className={`${inputClass} mt-2`} type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
+            <input
+              className={`${inputClass} mt-2 text-base sm:text-sm`}
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
           </label>
           <label className="block text-sm text-zinc-300">
             Mot de passe
-            <input className={`${inputClass} mt-2`} type="password" autoComplete="new-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
+            <input
+              className={`${inputClass} mt-2 text-base sm:text-sm`}
+              type="password"
+              autoComplete="new-password"
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
           </label>
           <label className="block text-sm text-zinc-300">
             Confirmation
-            <input className={`${inputClass} mt-2`} type="password" autoComplete="new-password" required value={confirm} onChange={(event) => setConfirm(event.target.value)} />
+            <input
+              className={`${inputClass} mt-2 text-base sm:text-sm`}
+              type="password"
+              autoComplete="new-password"
+              required
+              value={confirm}
+              onChange={(event) => setConfirm(event.target.value)}
+            />
           </label>
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
           {notice ? <p className="border border-white/15 px-3 py-2 text-sm leading-6 text-zinc-300">{notice}</p> : null}

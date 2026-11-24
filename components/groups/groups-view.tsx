@@ -13,7 +13,6 @@ import {
   ImagePlus,
   LogOut,
   MessageCircle,
-  Palette,
   Pencil,
   Reply,
   Send,
@@ -106,51 +105,8 @@ type EveningPrefs = {
   maxRuntime: string;
 };
 
-type ChatThemeId = "cinema" | "amber" | "emerald" | "velours" | "nuit";
-
-const CHAT_THEMES: {
-  id: ChatThemeId;
-  label: string;
-  panelClass: string;
-  bubbleMineClass: string;
-  pillClass: string;
-}[] = [
-  {
-    id: "cinema",
-    label: "Cinéma",
-    panelClass: "bg-[#101112]",
-    bubbleMineClass: "bg-[#C49A58]/18 text-[#EAE6DE] border-[#C49A58]/45",
-    pillClass: "bg-[#C49A58]",
-  },
-  {
-    id: "amber",
-    label: "Ambre",
-    panelClass: "bg-[#14110d]",
-    bubbleMineClass: "bg-[#C49A58]/25 text-[#EAE6DE] border-[#C49A58]/60",
-    pillClass: "bg-[#d2aa6a]",
-  },
-  {
-    id: "emerald",
-    label: "Sauge",
-    panelClass: "bg-[#0e1310]",
-    bubbleMineClass: "bg-[#A3B99B]/20 text-[#EAE6DE] border-[#A3B99B]/55",
-    pillClass: "bg-[#A3B99B]",
-  },
-  {
-    id: "velours",
-    label: "Anthracite",
-    panelClass: "bg-[#151618]",
-    bubbleMineClass: "bg-[#EAE6DE]/14 text-[#EAE6DE] border-[#EAE6DE]/35",
-    pillClass: "bg-[#EAE6DE]",
-  },
-  {
-    id: "nuit",
-    label: "Salle",
-    panelClass: "bg-[#101112]",
-    bubbleMineClass: "bg-[#202224] text-[#EAE6DE] border-[#EAE6DE]/25",
-    pillClass: "bg-[#8fa698]",
-  },
-];
+const AMBER_PANEL_CLASS = "bg-[#14110d]";
+const AMBER_BUBBLE_MINE_CLASS = "bg-[#C49A58]/25 text-[#EAE6DE] border-[#C49A58]/60";
 
 const QUICK_REACTIONS = ["🔥", "🎬", "😂", "👍"] as const;
 
@@ -247,8 +203,6 @@ export function GroupsView() {
   const [replyDraft, setReplyDraft] = useState<ReplyMeta | null>(null);
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
 
-  const [chatThemes, setChatThemes] = useState<Record<string, ChatThemeId>>({});
-
   const [compatibilityByUser, setCompatibilityByUser] = useState<Record<string, CompatibilityInfo>>({});
   const [badges, setBadges] = useState<BadgeTier[]>([]);
   const [badgesOpen, setBadgesOpen] = useState(false);
@@ -286,15 +240,56 @@ export function GroupsView() {
   const creatingGroupRef = useRef(false);
   const reactionColumnSupportedRef = useRef<boolean | null>(null);
 
-  const activeChatKey = useMemo(() => {
-    if (!activeChat) return null;
-    return activeChat.kind === "group" ? `group:${activeChat.id}` : `dm:${activeChat.friendId}`;
-  }, [activeChat]);
+  const accepted = useMemo(
+    () => friendships.filter((row) => row.status === "accepted"),
+    [friendships],
+  );
 
-  const currentChatTheme = useMemo(() => {
-    const id = activeChatKey ? chatThemes[activeChatKey] ?? "cinema" : "cinema";
-    return CHAT_THEMES.find((t) => t.id === id) ?? CHAT_THEMES[0];
-  }, [activeChatKey, chatThemes]);
+  const friendIds = useMemo(
+    () => new Set(accepted.map((row) => (row.requester_id === user?.id ? row.addressee_id : row.requester_id))),
+    [accepted, user?.id],
+  );
+
+  const canSeeRealName = useCallback(
+    (targetUserId?: string | null) => {
+      if (!targetUserId || !user) return false;
+      if (targetUserId === user.id) return true;
+      return friendIds.has(targetUserId);
+    },
+    [user, friendIds],
+  );
+
+  const formatPublicIdentity = useCallback(
+    (profile?: Profile | null, targetUserId?: string | null) => {
+      const uid = targetUserId ?? profile?.id ?? null;
+      const handle = profile?.username ? `@${profile.username}` : null;
+      if (canSeeRealName(uid) && profile?.full_name) {
+        return {
+          primary: profile.full_name,
+          secondary: handle,
+          avatarName: profile.full_name,
+        };
+      }
+      return {
+        primary: handle || "Membre",
+        secondary: null,
+        avatarName: profile?.username || "Membre",
+      };
+    },
+    [canSeeRealName],
+  );
+
+  const personName = useCallback(
+    (id: string) => {
+      const profile = people[id];
+      if (!profile) return "Membre";
+      if (canSeeRealName(id) && profile.full_name) {
+        return profile.full_name;
+      }
+      return profile.username ? `@${profile.username}` : "Membre";
+    },
+    [people, canSeeRealName],
+  );
 
   useEffect(() => {
     if (initialDm) {
@@ -311,29 +306,12 @@ export function GroupsView() {
       // ignore
     }
     try {
-      const savedThemes = window.localStorage.getItem(`matchcut_chat_themes_${user.id}`);
-      if (savedThemes) setChatThemes(JSON.parse(savedThemes) as Record<string, ChatThemeId>);
-    } catch {
-      // ignore
-    }
-    try {
       const savedPrefs = window.localStorage.getItem(`matchcut_evening_prefs_${user.id}`);
       if (savedPrefs) setEveningPrefsByGroup(JSON.parse(savedPrefs) as Record<string, EveningPrefs>);
     } catch {
       // ignore
     }
   }, [user]);
-
-  function selectChatTheme(themeId: ChatThemeId) {
-    if (!user || !activeChatKey) return;
-    setChatThemes((prev) => {
-      const next = { ...prev, [activeChatKey]: themeId };
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(`matchcut_chat_themes_${user.id}`, JSON.stringify(next));
-      }
-      return next;
-    });
-  }
 
   function updateEveningPrefs(patch: Partial<EveningPrefs>) {
     if (!user || activeChat?.kind !== "group") return;
@@ -747,11 +725,9 @@ export function GroupsView() {
     return () => window.clearTimeout(handle);
   }, [query, user]);
 
-  const accepted = friendships.filter((row) => row.status === "accepted");
   const incoming = friendships.filter((row) => row.status === "pending" && row.addressee_id === user?.id);
   const outgoingRows = friendships.filter((row) => row.status === "pending" && row.requester_id === user?.id);
   const outgoing = new Set(outgoingRows.map((row) => row.addressee_id));
-  const friendIds = new Set(accepted.map((row) => (row.requester_id === user?.id ? row.addressee_id : row.requester_id)));
   const activeGroup = activeChat?.kind === "group" ? groups.find((group) => group.id === activeChat.id) ?? null : null;
   const activeFriend = activeChat?.kind === "dm" ? people[activeChat.friendId] ?? null : null;
   const names = useMemo(() => people, [people]);
@@ -1043,7 +1019,7 @@ export function GroupsView() {
         setError(writeError.message);
         return;
       }
-      setNotice(`Invitation envoyée à ${profile.username || profile.full_name}.`);
+      setNotice(`Invitation envoyée à ${profile.username ? `@${profile.username}` : "ce membre"}.`);
       await loadSocial();
     } finally {
       setBusyFriendAction(null);
@@ -1286,24 +1262,19 @@ export function GroupsView() {
     }
   }
 
-  function personName(id: string) {
-    const profile = names[id];
-    return profile?.username || profile?.full_name || "Membre";
-  }
-
   const invitableFriends = [...friendIds].filter((fid) => !groupMemberIds.includes(fid));
   const unlockedBadgesCount = badges.filter((b) => b.level > 0).length;
 
   return (
-    <div className="space-y-12">
+    <div className="min-w-0 space-y-12">
       <div className="flex flex-wrap items-end justify-between gap-6 border-b border-[#EAE6DE]/12 pb-10">
-        <div>
+        <div className="min-w-0">
           <p className="mc-kicker">IV — Correspondances &amp; Cercles</p>
-          <h1 className="mt-3 font-serif text-5xl leading-[0.98] tracking-tight text-[#EAE6DE] sm:text-6xl">
+          <h1 className="mt-3 font-serif text-4xl leading-[0.98] tracking-tight text-[#EAE6DE] sm:text-6xl">
             Proches &amp; <span className="italic text-[#C49A58]">cercles</span>
           </h1>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#EAE6DE]/65">
-            {accepted.length} ami{accepted.length > 1 ? "s" : ""} · {groups.length} cercle{groups.length > 1 ? "s" : ""}. Ouvrez une conversation ou lancez un duel de soirée.
+            {accepted.length} ami{accepted.length > 1 ? "s" : ""} · {groups.length} cercle{groups.length > 1 ? "s" : ""}. Nom et prénom visibles entre amis ; pseudo seul pour les autres.
           </p>
         </div>
 
@@ -1359,11 +1330,11 @@ export function GroupsView() {
       </div>
 
       <div className="grid gap-10 lg:grid-cols-[350px_minmax(0,1fr)]">
-        <section className="space-y-9 border-r-0 lg:border-r lg:border-[#EAE6DE]/12 lg:pr-8">
+        <section className="min-w-0 space-y-9 border-r-0 lg:border-r lg:border-[#EAE6DE]/12 lg:pr-8">
           <div>
-            <label className="mc-kicker block text-[10px]">Rechercher un membre</label>
+            <label className="mc-kicker block text-[10px]">Rechercher un membre par pseudo</label>
             <input
-              className={`${inputClass} mt-2 rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-sm text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none`}
+              className={`${inputClass} mt-2 rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-base text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none sm:text-sm`}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Ex. camille_cine"
@@ -1373,18 +1344,21 @@ export function GroupsView() {
                 const pending = outgoing.has(profile.id);
                 const friend = friendIds.has(profile.id);
                 const isBusy = busyFriendAction === `add:${profile.id}`;
+                const identity = formatPublicIdentity(profile, profile.id);
                 return (
                   <div key={profile.id} className="flex items-center justify-between gap-3 py-2.5">
                     <Link href={`/membre/${profile.id}`} className="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-85">
-                      <Avatar name={profile.username || profile.full_name || "M"} url={profile.avatar_url} size={32} />
+                      <Avatar name={identity.avatarName} url={profile.avatar_url} size={32} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-[#EAE6DE]">{profile.full_name || profile.username}</p>
-                        <p className="truncate text-xs text-[#EAE6DE]/50">{profile.username ? `@${profile.username}` : "Fiche"}</p>
+                        <p className="truncate text-sm font-medium text-[#EAE6DE]">{identity.primary}</p>
+                        {identity.secondary ? (
+                          <p className="truncate text-xs text-[#EAE6DE]/50">{identity.secondary}</p>
+                        ) : null}
                       </div>
                     </Link>
                     <button
                       type="button"
-                      className="mc-kicker text-[10px] text-[#C49A58] hover:underline disabled:opacity-40"
+                      className="mc-kicker shrink-0 text-[10px] text-[#C49A58] hover:underline disabled:opacity-40"
                       disabled={friend || pending || Boolean(busyFriendAction)}
                       onClick={() => void addFriend(profile)}
                     >
@@ -1402,11 +1376,12 @@ export function GroupsView() {
               <div className="mt-3 divide-y divide-[#EAE6DE]/10">
                 {incoming.map((row) => {
                   const prof = people[row.requester_id];
+                  const identity = formatPublicIdentity(prof, row.requester_id);
                   return (
                     <div key={row.id} className="flex items-center justify-between gap-2 py-2.5 text-sm">
                       <Link href={`/membre/${row.requester_id}`} className="flex min-w-0 items-center gap-2.5 hover:underline">
-                        <Avatar name={personName(row.requester_id)} url={prof?.avatar_url} size={28} />
-                        <span className="truncate font-serif text-base text-[#EAE6DE]">{personName(row.requester_id)}</span>
+                        <Avatar name={identity.avatarName} url={prof?.avatar_url} size={28} />
+                        <span className="truncate font-serif text-base text-[#EAE6DE]">{identity.primary}</span>
                       </Link>
                       <span className="flex shrink-0 gap-3 text-xs">
                         <button
@@ -1442,13 +1417,14 @@ export function GroupsView() {
               <div className="mt-3 divide-y divide-[#EAE6DE]/10">
                 {outgoingRows.map((row) => {
                   const prof = people[row.addressee_id];
+                  const identity = formatPublicIdentity(prof, row.addressee_id);
                   return (
                     <div key={row.id} className="flex items-center justify-between gap-2 py-2 text-xs">
                       <Link href={`/membre/${row.addressee_id}`} className="flex min-w-0 items-center gap-2 hover:underline">
-                        <Avatar name={personName(row.addressee_id)} url={prof?.avatar_url} size={26} />
-                        <span className="truncate text-[#EAE6DE]/80">{personName(row.addressee_id)}</span>
+                        <Avatar name={identity.avatarName} url={prof?.avatar_url} size={26} />
+                        <span className="truncate text-[#EAE6DE]/80">{identity.primary}</span>
                       </Link>
-                      <span className="mc-kicker text-[10px] text-[#C49A58]/80">Envoyée</span>
+                      <span className="mc-kicker shrink-0 text-[10px] text-[#C49A58]/80">Envoyée</span>
                     </div>
                   );
                 })}
@@ -1460,17 +1436,18 @@ export function GroupsView() {
             <div className="border-t border-[#EAE6DE]/12 pt-6">
               <p className="mc-kicker inline-flex items-center gap-1.5 text-[10px]">
                 <Sparkles size={12} className="text-[#A3B99B]" />
-                <span>Affinités communes</span>
+                <span>Suggestions · Affinités communes</span>
               </p>
               <div className="mt-3 divide-y divide-[#EAE6DE]/10">
                 {mutualSuggestions.map(({ profile, mutualCount }) => {
                   const isBusy = busyFriendAction === `add:${profile.id}`;
+                  const identity = formatPublicIdentity(profile, profile.id);
                   return (
                     <div key={profile.id} className="flex items-center justify-between gap-2.5 py-2.5">
                       <Link href={`/membre/${profile.id}`} className="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-85">
-                        <Avatar name={profile.username || profile.full_name || "M"} url={profile.avatar_url} size={30} />
+                        <Avatar name={identity.avatarName} url={profile.avatar_url} size={30} />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-[#EAE6DE]">{profile.full_name || profile.username}</p>
+                          <p className="truncate text-sm font-medium text-[#EAE6DE]">{identity.primary}</p>
                           <p className="mc-kicker truncate text-[10px] text-[#A3B99B]">
                             {mutualCount} ami{mutualCount > 1 ? "s" : ""} en commun
                           </p>
@@ -1480,7 +1457,7 @@ export function GroupsView() {
                         type="button"
                         disabled={Boolean(busyFriendAction)}
                         onClick={() => void addFriend(profile)}
-                        className="mc-kicker text-[10px] text-[#C49A58] hover:underline"
+                        className="mc-kicker shrink-0 text-[10px] text-[#C49A58] hover:underline"
                       >
                         {isBusy ? "..." : "Inviter"}
                       </button>
@@ -1491,7 +1468,6 @@ export function GroupsView() {
             </div>
           ) : null}
 
-          {/* 1. Cercles de groupe */}
           <div className="border-t border-[#EAE6DE]/12 pt-6">
             <p className="mc-kicker text-[10px] text-[#C49A58]">Cercles ({groups.length})</p>
             <div className="mt-3 divide-y divide-[#EAE6DE]/10">
@@ -1525,7 +1501,7 @@ export function GroupsView() {
               }}
             >
               <input
-                className={`${inputClass} rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-1.5 text-xs text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none`}
+                className={`${inputClass} rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-1.5 text-base text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none sm:text-xs`}
                 value={groupName}
                 onChange={(event) => setGroupName(event.target.value)}
                 placeholder="Nouveau cercle (cochez des amis ci-dessous)…"
@@ -1540,7 +1516,6 @@ export function GroupsView() {
             </form>
           </div>
 
-          {/* 2. Correspondances individuelles / Amis */}
           <div className="border-t border-[#EAE6DE]/12 pt-6">
             <p className="mc-kicker text-[10px] text-[#A3B99B]">
               Amis ({accepted.length})
@@ -1552,6 +1527,7 @@ export function GroupsView() {
                 const unread = unreadByFriend[id] ?? 0;
                 const isDmActive = activeChat?.kind === "dm" && activeChat.friendId === id;
                 const compat = compatibilityByUser[id];
+                const identity = formatPublicIdentity(profile, id);
 
                 return (
                   <div key={row.id} className="flex items-center justify-between gap-2 py-2.5 text-sm">
@@ -1566,10 +1542,10 @@ export function GroupsView() {
                         }
                       />
                       <Link href={`/membre/${id}`} className="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-85">
-                        <Avatar name={personName(id)} url={profile?.avatar_url} size={30} />
+                        <Avatar name={identity.avatarName} url={profile?.avatar_url} size={30} />
                         <div className="min-w-0 flex-1">
                           <p className={`truncate font-serif text-lg ${isDmActive ? "text-[#C49A58]" : "text-[#EAE6DE]"}`}>
-                            {personName(id)}
+                            {identity.primary}
                           </p>
                           {compat ? (
                             <p className="mc-kicker truncate text-[9px] text-[#EAE6DE]/50">
@@ -1582,7 +1558,7 @@ export function GroupsView() {
                     <button
                       type="button"
                       onClick={() => setActiveChat({ kind: "dm", friendId: id })}
-                      className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#EAE6DE]/70 transition hover:text-[#C49A58]"
+                      className="mc-kicker inline-flex shrink-0 items-center gap-1.5 text-[10px] text-[#EAE6DE]/70 transition hover:text-[#C49A58]"
                       title="Ouvrir la discussion privée"
                     >
                       <MessageCircle size={12} />
@@ -1601,20 +1577,19 @@ export function GroupsView() {
           </div>
         </section>
 
-        {/* Zone de discussion active */}
         <section
-          className={`flex h-[700px] flex-col overflow-hidden border border-[#EAE6DE]/12 transition-colors ${currentChatTheme.panelClass}`}
+          className={`flex h-[560px] min-w-0 flex-col overflow-hidden border border-[#EAE6DE]/12 transition-colors sm:h-[700px] ${AMBER_PANEL_CLASS}`}
         >
           {activeGroup ? (
             <>
-              <header className="border-b border-[#EAE6DE]/12 bg-[#202224]/60 px-6 py-4">
+              <header className="border-b border-[#EAE6DE]/12 bg-[#202224]/60 px-4 py-4 sm:px-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
+                  <div className="flex min-w-0 items-center gap-3.5">
                     <Avatar name={activeGroup.name} url={activeGroup.avatar_url} size={42} />
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="mc-kicker text-[9px] text-[#C49A58]">Cercle</span>
-                        <h2 className="font-serif text-3xl text-[#EAE6DE]">{activeGroup.name}</h2>
+                        <h2 className="truncate font-serif text-2xl text-[#EAE6DE] sm:text-3xl">{activeGroup.name}</h2>
                         {groupAffinityAverage !== null ? (
                           <span className="mc-kicker inline-flex items-center gap-1 text-[10px] text-[#C49A58]">
                             <Flame size={11} />
@@ -1622,27 +1597,13 @@ export function GroupsView() {
                           </span>
                         ) : null}
                       </div>
-                      <p className="text-xs text-[#EAE6DE]/55">
+                      <p className="truncate text-xs text-[#EAE6DE]/55">
                         {groupMemberIds.length} membre{groupMemberIds.length > 1 ? "s" : ""} ·{" "}
                         {groupMemberIds.map((id) => (id === user?.id ? "Vous" : personName(id))).join(", ")}
                       </p>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-1.5" title="Teinte de la salle">
-                      <Palette size={13} className="mr-0.5 text-[#EAE6DE]/50" />
-                      {CHAT_THEMES.map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => selectChatTheme(t.id)}
-                          title={t.label}
-                          className={`h-3 w-3 rounded-full ${t.pillClass} ${
-                            currentChatTheme.id === t.id ? "ring-2 ring-[#EAE6DE] ring-offset-2 ring-offset-[#101112]" : "opacity-50 hover:opacity-100"
-                          }`}
-                        />
-                      ))}
-                    </div>
                     <button
                       type="button"
                       onClick={() => void prepareDuelSession(duelMode)}
@@ -1767,7 +1728,7 @@ export function GroupsView() {
                           value={renameDraft}
                           onChange={(e) => setRenameDraft(e.target.value)}
                           placeholder="Nouveau nom du cercle"
-                          className={`${inputClass} max-w-xs py-1 text-xs`}
+                          className={`${inputClass} max-w-xs py-1 text-base sm:text-xs`}
                         />
                         <button
                           type="button"
@@ -1782,7 +1743,7 @@ export function GroupsView() {
 
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       {invitableFriends.length > 0 ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <UserPlus size={13} className="text-[#EAE6DE]/50" />
                           <select
                             value={friendToAddId}
@@ -1822,7 +1783,7 @@ export function GroupsView() {
                 ) : null}
               </header>
 
-              <div className="flex-1 overflow-y-auto px-6 py-5">
+              <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
                 {feed.map((item, idx) => {
                   const mine = item.user_id === user?.id;
                   const prev = idx > 0 ? feed[idx - 1] : null;
@@ -1844,6 +1805,7 @@ export function GroupsView() {
                     (item.kind === "message" ? item.reactions : undefined) ?? localReactions[targetKey] ?? {};
                   const activeEmojis = Object.entries(reactions).filter(([, users]) => users.length > 0);
                   const prof = people[item.user_id];
+                  const identity = formatPublicIdentity(prof, item.user_id);
                   const isHighlighted = highlightedMsgId === item.id;
 
                   return (
@@ -1867,13 +1829,13 @@ export function GroupsView() {
                           <div className="w-8 shrink-0">
                             {!groupedWithNext ? (
                               <Link href={`/membre/${item.user_id}`} className="block hover:opacity-85">
-                                <Avatar name={personName(item.user_id)} url={prof?.avatar_url} size={30} />
+                                <Avatar name={identity.avatarName} url={prof?.avatar_url} size={30} />
                               </Link>
                             ) : null}
                           </div>
                         ) : null}
 
-                        <div className={`flex max-w-[78%] flex-col ${mine ? "items-end" : "items-start"}`}>
+                        <div className={`flex max-w-[82%] flex-col sm:max-w-[78%] ${mine ? "items-end" : "items-start"}`}>
                           {!mine && !groupedWithPrev ? (
                             <Link
                               href={`/membre/${item.user_id}`}
@@ -1886,9 +1848,9 @@ export function GroupsView() {
                           <div className={`relative flex items-center gap-1.5 ${mine ? "flex-row-reverse" : "flex-row"}`}>
                             {item.kind === "message" ? (
                               <div
-                                className={`whitespace-pre-wrap break-words rounded-sm border px-4 py-2.5 text-sm leading-relaxed ${
+                                className={`whitespace-pre-wrap break-words rounded-sm border px-3.5 py-2.5 text-sm leading-relaxed sm:px-4 ${
                                   mine
-                                    ? currentChatTheme.bubbleMineClass
+                                    ? AMBER_BUBBLE_MINE_CLASS
                                     : "border-[#EAE6DE]/12 bg-[#202224] text-[#EAE6DE]"
                                 }`}
                               >
@@ -1916,7 +1878,7 @@ export function GroupsView() {
                             )}
 
                             {item.kind === "message" ? (
-                              <div className="flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
+                              <div className="flex items-center gap-0.5 opacity-75 transition group-hover:opacity-100 focus-within:opacity-100 sm:opacity-0">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -1998,7 +1960,7 @@ export function GroupsView() {
               </div>
 
               {replyDraft ? (
-                <div className="flex items-center justify-between gap-2 border-t border-[#EAE6DE]/12 bg-[#202224]/70 px-5 py-2 text-xs">
+                <div className="flex items-center justify-between gap-2 border-t border-[#EAE6DE]/12 bg-[#202224]/70 px-4 py-2 text-xs sm:px-5">
                   <div className="min-w-0 border-l border-[#C49A58] pl-2.5">
                     <span className="mc-kicker text-[10px] text-[#C49A58]">Réponse à {replyDraft.authorName}</span>
                     <p className="truncate text-[#EAE6DE]/65">{replyDraft.preview}</p>
@@ -2015,7 +1977,7 @@ export function GroupsView() {
               ) : null}
 
               <form
-                className="flex items-end gap-3 border-t border-[#EAE6DE]/12 bg-[#202224]/40 px-5 py-3.5"
+                className="flex items-end gap-3 border-t border-[#EAE6DE]/12 bg-[#202224]/40 px-4 py-3.5 sm:px-5"
                 onSubmit={(event) => {
                   event.preventDefault();
                   void sendMessage();
@@ -2040,7 +2002,7 @@ export function GroupsView() {
                 </label>
                 <textarea
                   rows={1}
-                  className={`${inputClass} max-h-28 min-h-[40px] resize-none rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-sm text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none`}
+                  className={`${inputClass} max-h-28 min-h-[40px] resize-none rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-base text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none sm:text-sm`}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={(event) => {
@@ -2064,13 +2026,19 @@ export function GroupsView() {
             </>
           ) : activeFriend ? (
             <>
-              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EAE6DE]/12 bg-[#202224]/60 px-6 py-4">
-                <Link href={`/membre/${activeFriend.id}`} className="flex items-center gap-3 hover:opacity-85">
-                  <Avatar name={personName(activeFriend.id)} url={activeFriend.avatar_url} size={40} />
-                  <div>
+              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EAE6DE]/12 bg-[#202224]/60 px-4 py-4 sm:px-6">
+                <Link href={`/membre/${activeFriend.id}`} className="flex min-w-0 items-center gap-3 hover:opacity-85">
+                  <Avatar
+                    name={formatPublicIdentity(activeFriend, activeFriend.id).avatarName}
+                    url={activeFriend.avatar_url}
+                    size={40}
+                  />
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2.5">
                       <span className="mc-kicker text-[9px] text-[#A3B99B]">Privé</span>
-                      <h2 className="font-serif text-3xl text-[#EAE6DE]">{personName(activeFriend.id)}</h2>
+                      <h2 className="truncate font-serif text-2xl text-[#EAE6DE] sm:text-3xl">
+                        {personName(activeFriend.id)}
+                      </h2>
                       {compatibilityByUser[activeFriend.id] ? (
                         <span className="mc-kicker inline-flex items-center gap-1 text-[10px] text-[#C49A58]">
                           <Flame size={11} />
@@ -2078,7 +2046,7 @@ export function GroupsView() {
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-xs text-[#EAE6DE]/55">
+                    <p className="truncate text-xs text-[#EAE6DE]/55">
                       {compatibilityByUser[activeFriend.id]
                         ? `${compatibilityByUser[activeFriend.id].label} · ${compatibilityByUser[activeFriend.id].commonCount} titre${
                             compatibilityByUser[activeFriend.id].commonCount > 1 ? "s" : ""
@@ -2088,20 +2056,6 @@ export function GroupsView() {
                   </div>
                 </Link>
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5" title="Teinte de la conversation">
-                    <Palette size={13} className="mr-0.5 text-[#EAE6DE]/50" />
-                    {CHAT_THEMES.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => selectChatTheme(t.id)}
-                        title={t.label}
-                        className={`h-3 w-3 rounded-full ${t.pillClass} ${
-                          currentChatTheme.id === t.id ? "ring-2 ring-[#EAE6DE] ring-offset-2 ring-offset-[#101112]" : "opacity-50 hover:opacity-100"
-                        }`}
-                      />
-                    ))}
-                  </div>
                   <button
                     type="button"
                     onClick={() => void prepareDuelSession(duelMode)}
@@ -2113,7 +2067,7 @@ export function GroupsView() {
                 </div>
               </header>
 
-              <div className="flex-1 overflow-y-auto px-6 py-5">
+              <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
                 {dmFeed.map((msg, idx) => {
                   const mine = msg.sender_id === user?.id;
                   const prev = idx > 0 ? dmFeed[idx - 1] : null;
@@ -2158,12 +2112,16 @@ export function GroupsView() {
                         {!mine ? (
                           <div className="w-8 shrink-0">
                             {!groupedWithNext ? (
-                              <Avatar name={personName(msg.sender_id)} url={activeFriend.avatar_url} size={30} />
+                              <Avatar
+                                name={formatPublicIdentity(activeFriend, msg.sender_id).avatarName}
+                                url={activeFriend.avatar_url}
+                                size={30}
+                              />
                             ) : null}
                           </div>
                         ) : null}
 
-                        <div className={`flex max-w-[78%] flex-col ${mine ? "items-end" : "items-start"}`}>
+                        <div className={`flex max-w-[82%] flex-col sm:max-w-[78%] ${mine ? "items-end" : "items-start"}`}>
                           {msg.movie_title ? (
                             <div className="flex max-w-md gap-4 rounded-sm border border-[#A3B99B]/45 bg-[#202224] p-4">
                               {msg.poster_path ? (
@@ -2203,9 +2161,9 @@ export function GroupsView() {
                           ) : (
                             <div className={`relative flex items-center gap-1.5 ${mine ? "flex-row-reverse" : "flex-row"}`}>
                               <div
-                                className={`whitespace-pre-wrap break-words rounded-sm border px-4 py-2.5 text-sm leading-relaxed ${
+                                className={`whitespace-pre-wrap break-words rounded-sm border px-3.5 py-2.5 text-sm leading-relaxed sm:px-4 ${
                                   mine
-                                    ? currentChatTheme.bubbleMineClass
+                                    ? AMBER_BUBBLE_MINE_CLASS
                                     : "border-[#EAE6DE]/12 bg-[#202224] text-[#EAE6DE]"
                                 }`}
                               >
@@ -2221,7 +2179,7 @@ export function GroupsView() {
                                 ) : null}
                                 {decoded.cleanBody}
                               </div>
-                              <div className="flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
+                              <div className="flex items-center gap-0.5 opacity-75 transition group-hover:opacity-100 focus-within:opacity-100 sm:opacity-0">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -2303,7 +2261,7 @@ export function GroupsView() {
               </div>
 
               {replyDraft ? (
-                <div className="flex items-center justify-between gap-2 border-t border-[#EAE6DE]/12 bg-[#202224]/70 px-5 py-2 text-xs">
+                <div className="flex items-center justify-between gap-2 border-t border-[#EAE6DE]/12 bg-[#202224]/70 px-4 py-2 text-xs sm:px-5">
                   <div className="min-w-0 border-l border-[#C49A58] pl-2.5">
                     <span className="mc-kicker text-[10px] text-[#C49A58]">Réponse à {replyDraft.authorName}</span>
                     <p className="truncate text-[#EAE6DE]/65">{replyDraft.preview}</p>
@@ -2320,7 +2278,7 @@ export function GroupsView() {
               ) : null}
 
               <form
-                className="flex items-end gap-3 border-t border-[#EAE6DE]/12 bg-[#202224]/40 px-5 py-3.5"
+                className="flex items-end gap-3 border-t border-[#EAE6DE]/12 bg-[#202224]/40 px-4 py-3.5 sm:px-5"
                 onSubmit={(event) => {
                   event.preventDefault();
                   void sendMessage();
@@ -2328,7 +2286,7 @@ export function GroupsView() {
               >
                 <textarea
                   rows={1}
-                  className={`${inputClass} max-h-28 min-h-[40px] resize-none rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-sm text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none`}
+                  className={`${inputClass} max-h-28 min-h-[40px] resize-none rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-base text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none sm:text-sm`}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={(event) => {
@@ -2354,7 +2312,7 @@ export function GroupsView() {
             <div className="grid flex-1 place-items-center px-8 text-center">
               <div className="space-y-2">
                 <p className="mc-kicker text-[#C49A58]">Salon de correspondance</p>
-                <p className="font-serif text-3xl italic text-[#EAE6DE]/75">
+                <p className="font-serif text-2xl italic text-[#EAE6DE]/75 sm:text-3xl">
                   Choisissez un cercle ou un ami dans la colonne de gauche.
                 </p>
               </div>
