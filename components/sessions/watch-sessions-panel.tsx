@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Archive,
   Calendar,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clapperboard,
   Clock,
   Film,
@@ -25,6 +28,7 @@ import type { Profile, Title } from "@/lib/types";
 
 type RsvpStatus = "going" | "maybe" | "declined";
 type SessionPhase = "voting" | "live" | "completed";
+type SessionFilter = "active" | "completed";
 
 type SessionProposal = {
   id: string;
@@ -34,7 +38,7 @@ type SessionProposal = {
   posterPath: string | null;
   year: string;
   proposedBy: string;
-  votes: string[]; // userIds
+  votes: string[];
 };
 
 type SessionPhotoEntry = {
@@ -47,7 +51,7 @@ type SessionPhotoEntry = {
 
 type SessionReviewEntry = {
   userId: string;
-  rating: number; // 1..5
+  rating: number;
   comment: string;
 };
 
@@ -55,8 +59,8 @@ type WatchSession = {
   id: string;
   groupId: string;
   title: string;
-  scheduledAt: string; // ISO string
-  deadlineAt: string; // ISO string
+  scheduledAt: string;
+  deadlineAt: string;
   createdBy: string;
   phase: SessionPhase;
   startedAt?: string;
@@ -70,7 +74,7 @@ type WatchSession = {
 
 function formatCountdown(targetIso: string, nowMs: number) {
   const diff = new Date(targetIso).getTime() - nowMs;
-  if (diff <= 0) return "C'est l'heure !";
+  if (diff <= 0) return "C'est l'heure";
   const totalSec = Math.floor(diff / 1000);
   const days = Math.floor(totalSec / 86400);
   const hours = Math.floor((totalSec % 86400) / 3600);
@@ -104,20 +108,19 @@ export function WatchSessionsPanel({
   const { user } = useAuth();
   const [sessions, setSessions] = useState<WatchSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [sectionFilter, setSectionFilter] = useState<SessionFilter>("active");
+  const [expandedArchives, setExpandedArchives] = useState<Record<string, boolean>>({});
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
-  // Création de session
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newScheduled, setNewScheduled] = useState(() => defaultDatePlusHours(24));
   const [newDeadline, setNewDeadline] = useState(() => defaultDatePlusHours(12));
 
-  // Recherche TMDB pour proposer un titre
   const [movieQuery, setMovieQuery] = useState("");
   const [movieResults, setMovieResults] = useState<Title[]>([]);
   const [searchingMovies, setSearchingMovies] = useState(false);
 
-  // Notation post-séance
   const [myRating, setMyRating] = useState<number>(4);
   const [myComment, setMyComment] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -137,8 +140,9 @@ export function WatchSessionsPanel({
       if (raw) {
         const parsed = JSON.parse(raw) as WatchSession[];
         setSessions(parsed);
-        if (parsed.length > 0) {
-          setActiveSessionId((prev) => prev ?? parsed[0].id);
+        const firstActive = parsed.find((s) => s.phase !== "completed") ?? parsed[0] ?? null;
+        if (firstActive) {
+          setActiveSessionId((prev) => prev ?? firstActive.id);
         }
       } else {
         setSessions([]);
@@ -160,9 +164,25 @@ export function WatchSessionsPanel({
     }
   }
 
+  const activeSessions = useMemo(
+    () =>
+      sessions
+        .filter((s) => s.phase !== "completed")
+        .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()),
+    [sessions],
+  );
+
+  const archivedSessions = useMemo(
+    () =>
+      sessions
+        .filter((s) => s.phase === "completed")
+        .sort((a, b) => (b.completedAt || b.scheduledAt).localeCompare(a.completedAt || a.scheduledAt)),
+    [sessions],
+  );
+
   const activeSession = useMemo(
-    () => sessions.find((s) => s.id === activeSessionId) ?? sessions[0] ?? null,
-    [sessions, activeSessionId],
+    () => activeSessions.find((s) => s.id === activeSessionId) ?? activeSessions[0] ?? null,
+    [activeSessions, activeSessionId],
   );
 
   useEffect(() => {
@@ -177,7 +197,6 @@ export function WatchSessionsPanel({
     }
   }, [activeSession, user]);
 
-  // Recherche TMDB pour proposer un film/série
   useEffect(() => {
     const q = movieQuery.trim();
     if (q.length < 2) {
@@ -209,7 +228,7 @@ export function WatchSessionsPanel({
   }, [movieQuery]);
 
   function personLabel(uid: string) {
-    if (uid === user?.id) return "Moi";
+    if (uid === user?.id) return "Vous";
     const p = people[uid];
     return p?.username || p?.full_name || "Membre";
   }
@@ -241,9 +260,10 @@ export function WatchSessionsPanel({
     const next = [created, ...sessions];
     saveSessions(next);
     setActiveSessionId(created.id);
+    setSectionFilter("active");
     setNewTitle("");
     setCreateOpen(false);
-    onNotice?.(`Session « ${created.title} » créée pour ${groupName}.`);
+    onNotice?.(`Séance « ${created.title} » programmée pour ${groupName}.`);
   }
 
   function setRsvp(sessionId: string, status: RsvpStatus) {
@@ -311,13 +331,13 @@ export function WatchSessionsPanel({
         selectedTitleId: s.selectedTitleId ?? leader?.id ?? null,
       };
     });
-    onNotice?.("La séance a démarré ! Bon visionnage.");
+    onNotice?.("La projection est lancée.");
   }
 
   async function handlePhotoUpload(sessionId: string, file: File | null) {
     if (!user || !file || uploadingPhoto) return;
     if (!file.type.startsWith("image/") || file.size > 6_000_000) {
-      setError("Choisis une image de moins de 6 Mo.");
+      setError("Choisissez une image de moins de 6 Mo.");
       return;
     }
     setUploadingPhoto(true);
@@ -368,7 +388,7 @@ export function WatchSessionsPanel({
         },
       },
     }));
-    onNotice?.("Ta note de fin de séance a été enregistrée.");
+    onNotice?.("Votre note de fin de séance est enregistrée.");
   }
 
   async function completeSessionAndArchive(session: WatchSession) {
@@ -405,10 +425,11 @@ export function WatchSessionsPanel({
         { onConflict: "user_id,tmdb_id,media_type" },
       );
     }
+    setSectionFilter("completed");
     onNotice?.(
       winner
-        ? `Session clôturée : « ${winner.title} » est ajouté à tes titres Vus avec le bilan collectif.`
-        : "Session clôturée.",
+        ? `Séance archivée : « ${winner.title} » versé aux titres déjà vus.`
+        : "Séance archivée.",
     );
   }
 
@@ -433,432 +454,541 @@ export function WatchSessionsPanel({
   const collectiveSummary = useMemo(() => {
     if (!activeSession) return null;
     const list = Object.values(activeSession.reviews);
-    if (list.length === 0) return { avg: null, count: 0, verdict: "En attente des notes des participants" };
+    if (list.length === 0) return { avg: null, count: 0, verdict: "En attente des appréciations" };
     const avg = Number((list.reduce((acc, r) => acc + r.rating, 0) / list.length).toFixed(1));
     const verdict =
       avg >= 4.3
-        ? "Unanimité / Coup de cœur collectif"
+        ? "Coup de cœur partagé"
         : avg >= 3.5
-        ? "Séance réussie et validée par le groupe"
-        : "Avis partagés sur la séance";
+        ? "Séance validée par le cercle"
+        : "Lectures partagées";
     return { avg, count: list.length, verdict };
   }, [activeSession]);
 
   return (
-    <div className="space-y-5 rounded-2xl border border-amber-300/25 bg-gradient-to-br from-[#15120e] via-[#0d0d11] to-[#09090b] p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+    <div className="editorial-enter space-y-10 border-t border-[#EAE6DE]/12 pt-10">
+      <div className="flex flex-wrap items-end justify-between gap-6 border-b border-[#EAE6DE]/12 pb-8">
         <div>
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-amber-300">
+          <p className="mc-kicker inline-flex items-center gap-2 text-[#C49A58]">
             <Clapperboard size={13} />
-            Mode Session
-          </span>
-          <h3 className="mt-1 font-serif text-2xl text-[#f4f1ea]">Séances de {groupName}</h3>
-          <p className="text-xs text-zinc-400">
-            Planifie une soirée, votez pour le film, lancez le compte à rebours et archivez le bilan ensemble.
+            <span>V — Séances de {groupName}</span>
           </p>
+          <h3 className="mt-2 font-serif text-4xl text-[#EAE6DE] sm:text-5xl">
+            Programme &amp; <span className="italic text-[#A3B99B]">archives</span>
+          </h3>
         </div>
+
         <button type="button" onClick={() => setCreateOpen(true)} className={buttonClass}>
-          <Plus size={15} />
-          Nouvelle session
+          <Plus size={14} />
+          <span>Programmer</span>
+        </button>
+      </div>
+
+      {/* Onglets de tri : Séances actives vs Archives compactes */}
+      <div className="flex flex-wrap items-center gap-6 border-b border-[#EAE6DE]/10 pb-4">
+        <button
+          type="button"
+          onClick={() => setSectionFilter("active")}
+          className={`inline-flex items-baseline gap-2 pb-1 transition ${
+            sectionFilter === "active"
+              ? "border-b border-[#C49A58] text-[#EAE6DE]"
+              : "text-[#EAE6DE]/45 hover:text-[#EAE6DE]/85"
+          }`}
+        >
+          <span className="mc-kicker text-[10px]">À venir &amp; en cours</span>
+          <span className="font-serif text-lg italic text-[#C49A58]">{activeSessions.length}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSectionFilter("completed")}
+          className={`inline-flex items-baseline gap-2 pb-1 transition ${
+            sectionFilter === "completed"
+              ? "border-b border-[#C49A58] text-[#EAE6DE]"
+              : "text-[#EAE6DE]/45 hover:text-[#EAE6DE]/85"
+          }`}
+        >
+          <span className="mc-kicker inline-flex items-center gap-1.5 text-[10px]">
+            <Archive size={11} />
+            <span>Archivées</span>
+          </span>
+          <span className="font-serif text-lg italic text-[#A3B99B]">{archivedSessions.length}</span>
         </button>
       </div>
 
       <ErrorNote message={error} />
 
-      {sessions.length > 0 ? (
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {sessions.map((s) => {
-            const isSelected = activeSession?.id === s.id;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setActiveSessionId(s.id)}
-                className={`shrink-0 rounded-xl border px-3.5 py-2 text-left text-xs transition ${
-                  isSelected
-                    ? "border-amber-300 bg-amber-300/15 font-semibold text-[#f4f1ea]"
-                    : "border-white/10 bg-white/[0.02] text-zinc-400 hover:border-white/25"
-                }`}
-              >
-                <span>{s.title}</span>
-                <span className="ml-2 rounded-md bg-black/40 px-1.5 py-0.5 text-[10px] text-amber-200">
-                  {s.phase === "completed" ? "Archivée" : s.phase === "live" ? "En cours" : "Votes"}
-                </span>
-              </button>
-            );
-          })}
+      {sectionFilter === "completed" ? (
+        <div className="divide-y divide-[#EAE6DE]/10 border-b border-[#EAE6DE]/10">
+          {archivedSessions.length === 0 ? (
+            <p className="py-10 text-center font-serif text-xl italic text-[#EAE6DE]/50">
+              Aucune séance archivée pour ce cercle.
+            </p>
+          ) : (
+            archivedSessions.map((arch) => {
+              const winner =
+                arch.proposals.find((p) => p.id === arch.selectedTitleId) ??
+                [...arch.proposals].sort((a, b) => b.votes.length - a.votes.length)[0] ??
+                null;
+              const revList = Object.values(arch.reviews);
+              const avg =
+                revList.length > 0
+                  ? (revList.reduce((acc, r) => acc + r.rating, 0) / revList.length).toFixed(1)
+                  : null;
+              const isOpen = Boolean(expandedArchives[arch.id]);
+
+              return (
+                <div key={arch.id} className="py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-baseline gap-4">
+                      <span className="mc-kicker text-[9px] text-[#EAE6DE]/45">
+                        {new Intl.DateTimeFormat("fr-FR", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        }).format(new Date(arch.completedAt || arch.scheduledAt))}
+                      </span>
+                      <h4 className="font-serif text-xl text-[#EAE6DE]">{arch.title}</h4>
+                      {winner ? (
+                        <span className="font-serif text-base italic text-[#C49A58]">— {winner.title}</span>
+                      ) : null}
+                      {avg ? (
+                        <span className="mc-kicker text-[9px] text-[#A3B99B]">{avg}/5</span>
+                      ) : null}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedArchives((prev) => ({ ...prev, [arch.id]: !prev[arch.id] }))
+                      }
+                      className="mc-kicker inline-flex items-center gap-1 text-[10px] text-[#EAE6DE]/60 hover:text-[#C49A58]"
+                    >
+                      <span>{isOpen ? "Replier" : "Détails"}</span>
+                      {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    </button>
+                  </div>
+
+                  {isOpen ? (
+                    <div className="mt-4 space-y-4 border-l border-[#EAE6DE]/15 pl-4 text-xs text-[#EAE6DE]/70">
+                      {revList.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {revList.map((r) => (
+                            <p key={r.userId}>
+                              <strong className="text-[#EAE6DE]">{personLabel(r.userId)}</strong> ({r.rating}/5)
+                              {r.comment ? ` : « ${r.comment} »` : ""}
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[#EAE6DE]/45">Aucune note enregistrée.</p>
+                      )}
+                      {arch.photos.length > 0 ? (
+                        <div className="flex flex-wrap gap-3 pt-1">
+                          {arch.photos.map((ph) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={ph.id}
+                              src={ph.url}
+                              alt="Cliché archivé"
+                              className="h-16 w-24 object-cover"
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })
+          )}
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-white/15 bg-black/25 p-6 text-center">
-          <p className="text-sm text-zinc-300">Aucune session planifiée pour l&apos;instant.</p>
-          <p className="mt-1 text-xs text-zinc-400">
-            Crée une session avec une date et une deadline pour inviter le groupe à proposer et voter.
-          </p>
-        </div>
-      )}
-
-      {activeSession ? (
-        <div className="space-y-6">
-          {/* En-tête de session + Compte à rebours + Deadline */}
-          <div className="grid gap-3 rounded-2xl border border-white/10 bg-black/35 p-4 sm:grid-cols-3">
-            <div>
-              <p className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400">
-                <Calendar size={13} className="text-amber-300" />
-                Date de séance
-              </p>
-              <p className="mt-1 text-sm font-semibold text-[#f4f1ea]">
-                {new Intl.DateTimeFormat("fr-FR", {
-                  weekday: "short",
-                  day: "numeric",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }).format(new Date(activeSession.scheduledAt))}
-              </p>
-              <p className="mt-0.5 text-[11px] text-zinc-500">
-                Deadline vote :{" "}
-                {new Intl.DateTimeFormat("fr-FR", {
-                  day: "numeric",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }).format(new Date(activeSession.deadlineAt))}
-              </p>
-            </div>
-
-            <div>
-              <p className="inline-flex items-center gap-1.5 text-[11px] text-amber-200">
-                <Timer size={13} className="text-amber-300" />
-                Compte à rebours
-              </p>
-              <p className="mt-1 font-mono text-xl font-bold text-amber-200">
-                {activeSession.phase === "completed"
-                  ? "Terminée"
-                  : activeSession.phase === "live"
-                  ? "Séance lancée"
-                  : formatCountdown(activeSession.scheduledAt, nowMs)}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {activeSession.phase === "voting" ? (
-                <button
-                  type="button"
-                  onClick={() => startSessionNow(activeSession.id)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-400 px-3.5 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-emerald-300"
-                >
-                  <Play size={14} fill="currentColor" />
-                  La séance a commencé
-                </button>
-              ) : null}
-              {activeSession.phase !== "completed" ? (
-                <button
-                  type="button"
-                  onClick={() => void completeSessionAndArchive(activeSession)}
-                  className={ghostClass}
-                >
-                  <CheckCircle2 size={14} />
-                  Clôturer &amp; archiver
-                </button>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/35 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-300">
-                  <Trophy size={13} />
-                  Ajouté aux Vus
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Présence / inscription des participants */}
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-300">
-                <Users size={14} className="text-amber-300" />
-                Participants &amp; présence
-              </h4>
-              {user && activeSession.phase !== "completed" ? (
-                <div className="flex gap-1.5 text-xs">
-                  {(
-                    [
-                      ["going", "Partant"],
-                      ["maybe", "Peut-être"],
-                      ["declined", "Absent"],
-                    ] as const
-                  ).map(([st, lbl]) => {
-                    const active = activeSession.rsvps[user.id] === st;
-                    return (
-                      <button
-                        key={st}
-                        type="button"
-                        onClick={() => setRsvp(activeSession.id, st)}
-                        className={`rounded-lg border px-2.5 py-1 transition ${
-                          active
-                            ? "border-amber-300 bg-amber-300 text-zinc-950 font-semibold"
-                            : "border-white/15 text-zinc-300 hover:border-white/30"
-                        }`}
-                      >
-                        {lbl}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {allParticipants.map((uid) => {
-                const st = activeSession.rsvps[uid] ?? "maybe";
-                const badgeText = st === "going" ? "✓ Partant" : st === "declined" ? "✕ Absent" : "? Peut-être";
+        <>
+          {activeSessions.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-6">
+              {activeSessions.map((s) => {
+                const isSelected = activeSession?.id === s.id;
                 return (
-                  <div
-                    key={uid}
-                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-2.5 py-1.5 text-xs"
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setActiveSessionId(s.id)}
+                    className={`inline-flex items-baseline gap-2 pb-1 transition ${
+                      isSelected
+                        ? "border-b border-[#C49A58] text-[#EAE6DE]"
+                        : "text-[#EAE6DE]/45 hover:text-[#EAE6DE]/85"
+                    }`}
                   >
-                    <Avatar name={personLabel(uid)} url={people[uid]?.avatar_url} size={24} />
-                    <span className="text-zinc-200">{personLabel(uid)}</span>
-                    <span
-                      className={`text-[10px] font-semibold ${
-                        st === "going" ? "text-emerald-300" : st === "declined" ? "text-rose-300" : "text-amber-200"
-                      }`}
-                    >
-                      {badgeText}
+                    <span className="font-serif text-xl">{s.title}</span>
+                    <span className="mc-kicker text-[9px] text-[#C49A58]">
+                      {s.phase === "live" ? "En cours" : "Votes"}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
-          </div>
-
-          {/* Propositions & Votes */}
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-300">
-                <Film size={14} className="text-amber-300" />
-                Choix du film &amp; votes ({activeSession.proposals.length})
-              </h4>
-              {winningProposal ? (
-                <span className="text-xs font-medium text-amber-200">
-                  En tête : <strong>{winningProposal.title}</strong> ({winningProposal.votes.length} vote
-                  {winningProposal.votes.length > 1 ? "s" : ""})
-                </span>
-              ) : null}
+          ) : (
+            <div className="border-y border-[#EAE6DE]/12 py-12 text-center">
+              <p className="font-serif text-2xl italic text-[#EAE6DE]/75">
+                Aucune séance en cours ou à venir.
+              </p>
+              <p className="mt-1.5 text-xs text-[#EAE6DE]/50">
+                Programmez une nouvelle séance ou consultez vos séances archivées.
+              </p>
             </div>
+          )}
 
-            {activeSession.phase === "voting" ? (
-              <div className="relative mt-3">
-                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                <input
-                  className={`${inputClass} pl-9 text-xs`}
-                  value={movieQuery}
-                  onChange={(e) => setMovieQuery(e.target.value)}
-                  placeholder="Proposer un film, une série ou un animé (ex. Interstellar, Dune…)"
-                />
-                {searchingMovies ? <p className="mt-1.5 text-[11px] text-zinc-500">Recherche…</p> : null}
-                {movieResults.length > 0 ? (
-                  <div className="mt-2 grid gap-2 rounded-xl border border-white/15 bg-zinc-950 p-2 sm:grid-cols-2">
-                    {movieResults.map((t) => (
-                      <button
-                        key={`${t.mediaType}:${t.tmdbId}`}
-                        type="button"
-                        onClick={() => addProposal(activeSession.id, t)}
-                        className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.02] p-2 text-left transition hover:border-amber-300/50"
-                      >
-                        <div className="h-11 w-8 shrink-0 overflow-hidden rounded">
-                          <Poster path={t.posterPath} alt={t.title} className="h-full w-full" />
+          {activeSession ? (
+            <div className="space-y-12">
+              <div className="grid gap-8 border-b border-[#EAE6DE]/12 pb-10 sm:grid-cols-3">
+                <div>
+                  <p className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#EAE6DE]/50">
+                    <Calendar size={12} className="text-[#C49A58]" />
+                    <span>Horaire</span>
+                  </p>
+                  <p className="mt-2 font-serif text-2xl text-[#EAE6DE]">
+                    {new Intl.DateTimeFormat("fr-FR", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(activeSession.scheduledAt))}
+                  </p>
+                  <p className="mc-kicker mt-1 text-[10px] text-[#EAE6DE]/45">
+                    Clôture :{" "}
+                    {new Intl.DateTimeFormat("fr-FR", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(activeSession.deadlineAt))}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#C49A58]">
+                    <Timer size={12} />
+                    <span>Compte à rebours</span>
+                  </p>
+                  <p className="mt-2 font-serif text-3xl text-[#EAE6DE]">
+                    {activeSession.phase === "live"
+                      ? "En cours"
+                      : formatCountdown(activeSession.scheduledAt, nowMs)}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4 sm:justify-end">
+                  {activeSession.phase === "voting" ? (
+                    <button
+                      type="button"
+                      onClick={() => startSessionNow(activeSession.id)}
+                      className="mc-kicker inline-flex items-center gap-2 bg-[#A3B99B] px-4 py-2.5 text-[10px] font-semibold text-[#101112] transition hover:bg-[#b5c9ad]"
+                    >
+                      <Play size={12} fill="currentColor" />
+                      <span>Lancer</span>
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void completeSessionAndArchive(activeSession)}
+                    className={ghostClass}
+                  >
+                    <CheckCircle2 size={13} />
+                    <span>Archiver</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-b border-[#EAE6DE]/12 pb-10">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <h4 className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#EAE6DE]/65">
+                    <Users size={13} className="text-[#C49A58]" />
+                    <span>Présence</span>
+                  </h4>
+                  {user ? (
+                    <div className="flex items-center gap-4">
+                      {(
+                        [
+                          ["going", "Partant"],
+                          ["maybe", "Peut-être"],
+                          ["declined", "Absent"],
+                        ] as const
+                      ).map(([st, lbl]) => {
+                        const active = activeSession.rsvps[user.id] === st;
+                        return (
+                          <button
+                            key={st}
+                            type="button"
+                            onClick={() => setRsvp(activeSession.id, st)}
+                            className={`mc-kicker pb-1 text-[10px] transition ${
+                              active
+                                ? "border-b border-[#C49A58] text-[#C49A58]"
+                                : "text-[#EAE6DE]/45 hover:text-[#EAE6DE]"
+                            }`}
+                          >
+                            {lbl}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-6">
+                  {allParticipants.map((uid) => {
+                    const st = activeSession.rsvps[uid] ?? "maybe";
+                    const statusLabel = st === "going" ? "Partant" : st === "declined" ? "Absent" : "Peut-être";
+                    return (
+                      <div key={uid} className="flex items-center gap-2.5 text-xs">
+                        <Avatar name={personLabel(uid)} url={people[uid]?.avatar_url} size={28} />
+                        <span className="font-serif text-lg text-[#EAE6DE]">{personLabel(uid)}</span>
+                        <span
+                          className={`mc-kicker text-[9px] ${
+                            st === "going" ? "text-[#A3B99B]" : st === "declined" ? "text-[#EAE6DE]/40" : "text-[#C49A58]"
+                          }`}
+                        >
+                          {statusLabel}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="border-b border-[#EAE6DE]/12 pb-10">
+                <div className="flex flex-wrap items-baseline justify-between gap-4">
+                  <h4 className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#EAE6DE]/65">
+                    <Film size={13} className="text-[#C49A58]" />
+                    <span>Propositions &amp; votes ({activeSession.proposals.length})</span>
+                  </h4>
+                  {winningProposal ? (
+                    <span className="font-serif text-lg italic text-[#C49A58]">
+                      En tête : {winningProposal.title} ({winningProposal.votes.length} vote
+                      {winningProposal.votes.length > 1 ? "s" : ""})
+                    </span>
+                  ) : null}
+                </div>
+
+                {activeSession.phase === "voting" ? (
+                  <div className="relative mt-5 max-w-xl">
+                    <Search size={14} className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-[#EAE6DE]/45" />
+                    <input
+                      className={`${inputClass} rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent py-2 pl-7 pr-4 text-sm text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none`}
+                      value={movieQuery}
+                      onChange={(e) => setMovieQuery(e.target.value)}
+                      placeholder="Proposer une œuvre…"
+                    />
+                    {searchingMovies ? <p className="mc-kicker mt-2 text-[10px]">Recherche…</p> : null}
+                    {movieResults.length > 0 ? (
+                      <div className="mt-3 grid gap-3 border border-[#EAE6DE]/15 bg-[#202224] p-3 sm:grid-cols-2">
+                        {movieResults.map((t) => (
+                          <button
+                            key={`${t.mediaType}:${t.tmdbId}`}
+                            type="button"
+                            onClick={() => addProposal(activeSession.id, t)}
+                            className="flex items-center gap-3 border-b border-[#EAE6DE]/10 pb-2.5 text-left transition hover:border-[#C49A58]"
+                          >
+                            <div className="aspect-[2/3] w-8 shrink-0 overflow-hidden bg-[#101112]">
+                              <Poster path={t.posterPath} alt={t.title} className="h-full w-full" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-serif text-base text-[#EAE6DE]">{t.title}</p>
+                              <p className="mc-kicker text-[9px] text-[#EAE6DE]/45">{t.year || "Œuvre"}</p>
+                            </div>
+                            <Plus size={14} className="text-[#C49A58]" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {activeSession.proposals.length > 0 ? (
+                  <div className="mt-7 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                    {activeSession.proposals.map((prop) => {
+                      const voted = user ? prop.votes.includes(user.id) : false;
+                      const isWinner = winningProposal?.id === prop.id;
+                      return (
+                        <div
+                          key={prop.id}
+                          className={`flex items-center gap-4 border-b pb-4 ${
+                            isWinner ? "border-[#C49A58]" : "border-[#EAE6DE]/12"
+                          }`}
+                        >
+                          <div className="aspect-[2/3] w-14 shrink-0 overflow-hidden bg-[#202224]">
+                            <Poster path={prop.posterPath} alt={prop.title} className="h-full w-full" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-serif text-xl text-[#EAE6DE]">{prop.title}</p>
+                            <p className="mc-kicker text-[9px] text-[#EAE6DE]/45">Par {personLabel(prop.proposedBy)}</p>
+                            {activeSession.phase === "voting" ? (
+                              <button
+                                type="button"
+                                onClick={() => toggleVote(activeSession.id, prop.id)}
+                                className={`mc-kicker mt-2 px-3 py-1 text-[10px] transition ${
+                                  voted
+                                    ? "bg-[#C49A58] font-semibold text-[#101112]"
+                                    : "border border-[#EAE6DE]/20 text-[#EAE6DE]/80 hover:border-[#C49A58] hover:text-[#C49A58]"
+                                }`}
+                              >
+                                {voted ? `Retenu (${prop.votes.length})` : `Voter (${prop.votes.length})`}
+                              </button>
+                            ) : (
+                              <p className="mc-kicker mt-1.5 text-[10px] text-[#C49A58]">
+                                {prop.votes.length} vote{prop.votes.length > 1 ? "s" : ""}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-semibold text-[#f4f1ea]">{t.title}</p>
-                          <p className="text-[10px] text-zinc-400">{t.year || "Titre"}</p>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="border-b border-[#EAE6DE]/12 pb-10">
+                <div className="flex items-center justify-between">
+                  <h4 className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#EAE6DE]/65">
+                    <Clock size={13} className="text-[#C49A58]" />
+                    <span>Clichés ({activeSession.photos.length})</span>
+                  </h4>
+                  <label className="mc-kicker inline-flex cursor-pointer items-center gap-1.5 text-[10px] text-[#EAE6DE]/80 transition hover:text-[#C49A58]">
+                    <ImagePlus size={13} />
+                    <span>{uploadingPhoto ? "Envoi…" : "Ajouter"}</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      disabled={uploadingPhoto}
+                      onChange={(e) => {
+                        void handlePhotoUpload(activeSession.id, e.target.files?.[0] ?? null);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+                {activeSession.photos.length > 0 ? (
+                  <div className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-4">
+                    {activeSession.photos.map((ph) => (
+                      <figure key={ph.id} className="group space-y-2">
+                        <div className="aspect-video overflow-hidden bg-[#202224]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={ph.url}
+                            alt="Cliché de séance"
+                            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                          />
                         </div>
-                        <Plus size={14} className="text-amber-300" />
-                      </button>
+                        <figcaption className="mc-kicker text-[9px] text-[#EAE6DE]/45">
+                          Par {personLabel(ph.userId)}
+                        </figcaption>
+                      </figure>
                     ))}
                   </div>
                 ) : null}
               </div>
-            ) : null}
 
-            {activeSession.proposals.length > 0 ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {activeSession.proposals.map((prop) => {
-                  const voted = user ? prop.votes.includes(user.id) : false;
-                  const isWinner = winningProposal?.id === prop.id;
-                  return (
-                    <div
-                      key={prop.id}
-                      className={`flex items-center gap-3 rounded-xl border p-2.5 ${
-                        isWinner ? "border-amber-300/55 bg-amber-300/10" : "border-white/10 bg-black/30"
-                      }`}
-                    >
-                      <div className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-white/10">
-                        <Poster path={prop.posterPath} alt={prop.title} className="h-full w-full" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-serif text-sm text-[#f4f1ea]">{prop.title}</p>
-                        <p className="text-[10px] text-zinc-400">Par {personLabel(prop.proposedBy)}</p>
-                        {activeSession.phase === "voting" ? (
-                          <button
-                            type="button"
-                            onClick={() => toggleVote(activeSession.id, prop.id)}
-                            className={`mt-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
-                              voted
-                                ? "bg-amber-300 text-zinc-950"
-                                : "border border-white/15 bg-white/[0.04] text-zinc-200 hover:border-amber-300/40"
-                            }`}
-                          >
-                            {voted ? `Voté (${prop.votes.length})` : `Voter (${prop.votes.length})`}
-                          </button>
-                        ) : (
-                          <p className="mt-1 text-[11px] font-semibold text-amber-300">{prop.votes.length} vote(s)</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-zinc-500">Aucun titre proposé pour l&apos;instant.</p>
-            )}
-          </div>
+              <div>
+                <div className="flex flex-wrap items-baseline justify-between gap-4">
+                  <h4 className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#EAE6DE]/65">
+                    <Sparkles size={13} className="text-[#C49A58]" />
+                    <span>Notes &amp; bilan</span>
+                  </h4>
+                  {collectiveSummary && collectiveSummary.avg !== null ? (
+                    <span className="font-serif text-xl italic text-[#C49A58]">
+                      Moyenne {collectiveSummary.avg}/5 · {collectiveSummary.verdict}
+                    </span>
+                  ) : null}
+                </div>
 
-          {/* Photos de séance */}
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <div className="flex items-center justify-between">
-              <h4 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-300">
-                <Clock size={14} className="text-amber-300" />
-                Photos de séance ({activeSession.photos.length})
-              </h4>
-              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-200 hover:border-white/35">
-                <ImagePlus size={13} />
-                <span>{uploadingPhoto ? "Envoi..." : "Ajouter une photo"}</span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="sr-only"
-                  disabled={uploadingPhoto}
-                  onChange={(e) => {
-                    void handlePhotoUpload(activeSession.id, e.target.files?.[0] ?? null);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-            </div>
-            {activeSession.photos.length > 0 ? (
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {activeSession.photos.map((ph) => (
-                  <figure key={ph.id} className="overflow-hidden rounded-xl border border-white/10 bg-black/40">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={ph.url} alt="Photo de séance" className="aspect-video w-full object-cover" />
-                    <figcaption className="px-2.5 py-1.5 text-[10px] text-zinc-400">
-                      Par {personLabel(ph.userId)}
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-zinc-500">Partage une photo de la séance, du popcorn ou de l&apos;ambiance.</p>
-            )}
-          </div>
-
-          {/* Notes individuelles & Bilan collectif */}
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-300">
-                <Sparkles size={14} className="text-amber-300" />
-                Notes &amp; bilan collectif
-              </h4>
-              {collectiveSummary && collectiveSummary.avg !== null ? (
-                <span className="rounded-full border border-amber-300/35 bg-amber-300/10 px-3 py-0.5 text-xs font-semibold text-amber-200">
-                  Moyenne : {collectiveSummary.avg}/5 · {collectiveSummary.verdict}
-                </span>
-              ) : null}
-            </div>
-
-            <div className="mt-3 grid gap-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setMyRating(star)}
-                    className={`rounded-lg p-1.5 transition ${
-                      myRating >= star ? "text-amber-300" : "text-zinc-600 hover:text-zinc-400"
-                    }`}
-                    aria-label={`Noter ${star} sur 5`}
-                  >
-                    <Star size={18} fill={myRating >= star ? "currentColor" : "none"} />
-                  </button>
-                ))}
-              </div>
-              <input
-                className={`${inputClass} text-xs`}
-                value={myComment}
-                onChange={(e) => setMyComment(e.target.value)}
-                placeholder="Ton ressenti rapide après la séance…"
-              />
-              <button type="button" onClick={() => saveReview(activeSession.id)} className={ghostClass}>
-                Enregistrer ma note
-              </button>
-            </div>
-
-            {Object.values(activeSession.reviews).length > 0 ? (
-              <div className="mt-4 space-y-2 border-t border-white/10 pt-3">
-                {Object.values(activeSession.reviews).map((rev) => (
-                  <div
-                    key={rev.userId}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs"
-                  >
-                    <div>
-                      <span className="font-semibold text-[#f4f1ea]">{personLabel(rev.userId)}</span>
-                      {rev.comment ? <p className="mt-0.5 text-zinc-300">{rev.comment}</p> : null}
-                    </div>
-                    <span className="shrink-0 font-bold text-amber-300">{rev.rating} / 5 ★</span>
+                <div className="mt-5 grid gap-5 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setMyRating(star)}
+                        className={`p-1 transition ${
+                          myRating >= star ? "text-[#C49A58]" : "text-[#EAE6DE]/25 hover:text-[#EAE6DE]/55"
+                        }`}
+                        aria-label={`Noter ${star} sur 5`}
+                      >
+                        <Star size={17} fill={myRating >= star ? "currentColor" : "none"} />
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+                  <input
+                    className={`${inputClass} rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-sm text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none`}
+                    value={myComment}
+                    onChange={(e) => setMyComment(e.target.value)}
+                    placeholder="Votre impression…"
+                  />
+                  <button type="button" onClick={() => saveReview(activeSession.id)} className={ghostClass}>
+                    Enregistrer
+                  </button>
+                </div>
 
-      {/* Modale de création de session */}
-      <Modal open={createOpen} title="Créer une session de visionnage" onClose={() => setCreateOpen(false)}>
-        <form onSubmit={createSession} className="space-y-4">
-          <label className="block text-xs text-zinc-300">
-            Nom de la session
+                {Object.values(activeSession.reviews).length > 0 ? (
+                  <div className="mt-6 divide-y divide-[#EAE6DE]/10 border-t border-[#EAE6DE]/10">
+                    {Object.values(activeSession.reviews).map((rev) => (
+                      <div key={rev.userId} className="flex items-start justify-between gap-4 py-4 text-xs">
+                        <div>
+                          <span className="font-serif text-lg text-[#EAE6DE]">{personLabel(rev.userId)}</span>
+                          {rev.comment ? (
+                            <p className="mt-1 font-serif text-base italic text-[#EAE6DE]/70">« {rev.comment} »</p>
+                          ) : null}
+                        </div>
+                        <span className="mc-kicker shrink-0 text-[10px] text-[#C49A58]">{rev.rating} / 5</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
+
+      <Modal open={createOpen} title="Programmer une séance" onClose={() => setCreateOpen(false)}>
+        <form onSubmit={createSession} className="space-y-5">
+          <label className="block text-xs text-[#EAE6DE]/80">
+            <span className="mc-kicker">Intitulé</span>
             <input
-              className={`${inputClass} mt-1.5`}
+              className={`${inputClass} mt-2 w-full`}
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Ex. Soirée cinéma du vendredi"
+              placeholder="Ex. Séance du vendredi soir"
               required
             />
           </label>
-          <label className="block text-xs text-zinc-300">
-            Date et heure de la séance
+          <label className="block text-xs text-[#EAE6DE]/80">
+            <span className="mc-kicker">Date et heure</span>
             <input
               type="datetime-local"
-              className={`${inputClass} mt-1.5`}
+              className={`${inputClass} mt-2 w-full`}
               value={newScheduled}
               onChange={(e) => setNewScheduled(e.target.value)}
               required
             />
           </label>
-          <label className="block text-xs text-zinc-300">
-            Deadline pour proposer et voter
+          <label className="block text-xs text-[#EAE6DE]/80">
+            <span className="mc-kicker">Clôture des votes</span>
             <input
               type="datetime-local"
-              className={`${inputClass} mt-1.5`}
+              className={`${inputClass} mt-2 w-full`}
               value={newDeadline}
               onChange={(e) => setNewDeadline(e.target.value)}
               required
             />
           </label>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => setCreateOpen(false)} className={ghostClass}>
               Annuler
             </button>
             <button type="submit" className={buttonClass} disabled={newTitle.trim().length < 2}>
-              Créer la session
+              Programmer
             </button>
           </div>
         </form>

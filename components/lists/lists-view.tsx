@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, Film, Inbox, Loader2, Plus, RotateCcw, Swords, Trash2, Tv, Trophy } from "lucide-react";
+import { Check, Inbox, Loader2, Plus, RotateCcw, Swords, Trash2, Trophy } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { TitleDetailModal } from "@/components/title-detail-modal";
-import { ErrorNote, Modal, PageHeader, Poster, Stars, buttonClass, ghostClass } from "@/components/ui";
+import { ErrorNote, Modal, Poster, Stars, buttonClass, ghostClass } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { Profile, Recommendation, Title, WatchItem } from "@/lib/types";
 
@@ -35,7 +35,6 @@ export function ListsView() {
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  // Duel solo
   const [duelOpen, setDuelOpen] = useState(false);
   const [includeReceivedInDuel, setIncludeReceivedInDuel] = useState(false);
   const [duelPool, setDuelPool] = useState<SoloDuelEntry[]>([]);
@@ -180,8 +179,8 @@ export function ListsView() {
       setDuelOpen(false);
       setNotice(
         markAsWatched
-          ? `« ${winner.title} » marqué comme vu.`
-          : `Choix du soir : « ${winner.title} » est prêt dans ta liste À voir.`,
+          ? `« ${winner.title} » versé aux titres vus.`
+          : `Choix de la soirée : « ${winner.title} » est prêt dans À voir.`,
       );
       return;
     }
@@ -208,8 +207,8 @@ export function ListsView() {
     setDuelOpen(false);
     setNotice(
       markAsWatched
-        ? `« ${winner.title} » ajouté à Vus.`
-        : `« ${winner.title} » ajouté à ta liste À voir pour ce soir.`,
+        ? `« ${winner.title} » versé aux titres vus.`
+        : `« ${winner.title} » ajouté à À voir pour ce soir.`,
     );
   }
 
@@ -268,7 +267,7 @@ export function ListsView() {
         return;
       }
       setItems((prev) => prev.filter((row) => row.id !== item.id));
-      setNotice(`« ${item.title} » retiré de votre liste.`);
+      setNotice(`« ${item.title} » retiré de la collection.`);
     } finally {
       setBusyKey(null);
     }
@@ -297,7 +296,7 @@ export function ListsView() {
         setError(writeError.message);
         return;
       }
-      setNotice(`« ${recommendation.title} » ajouté à votre liste À voir.`);
+      setNotice(`« ${recommendation.title} » ajouté à À voir.`);
       await load();
     } finally {
       setBusyKey(null);
@@ -330,79 +329,87 @@ export function ListsView() {
   const watchedCount = items.filter((i) => i.status === "watched").length;
   const canLaunchSoloDuel = toWatchCount >= 2 || (includeReceivedInDuel && toWatchCount + received.length >= 2);
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "received", label: `Reçues (${received.length})` },
-    { id: "to_watch", label: `À voir (${toWatchCount})` },
-    { id: "watched", label: `Vus (${watchedCount})` },
+  const tabs: { id: Tab; label: string; count: number }[] = [
+    { id: "received", label: "Reçues", count: received.length },
+    { id: "to_watch", label: "À voir", count: toWatchCount },
+    { id: "watched", label: "Déjà vus", count: watchedCount },
   ];
 
   return (
-    <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <PageHeader
-          kicker="Ta cinémathèque perso"
-          title="Listes"
-          text="Retrouve les conseils de tes amis, les films à garder sous le coude et ceux que tu as déjà vus."
-        />
-        {toWatchCount >= 2 || received.length >= 2 ? (
-          <button
-            type="button"
-            onClick={() => launchSoloDuel(includeReceivedInDuel)}
-            className="mb-6 inline-flex items-center gap-2 rounded-2xl border border-amber-400/35 bg-amber-400/10 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:border-amber-400/60"
-          >
-            <Swords size={15} className="text-amber-300" />
-            <span>Duel solo</span>
-          </button>
-        ) : null}
-      </div>
-
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((item) => {
-            const active = tab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setTab(item.id)}
-                className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-                  active
-                    ? "bg-[#f4f1ea] text-[#09090b] shadow-xs"
-                    : "border border-white/12 bg-white/[0.02] text-zinc-300 hover:border-white/25 hover:text-white"
-                }`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
+    <div className="space-y-14">
+      <div className="border-b border-[#EAE6DE]/12 pb-10">
+        <p className="mc-kicker">III — Collections</p>
+        <div className="mt-3 flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <h1 className="font-serif text-5xl leading-[0.98] tracking-tight text-[#EAE6DE] sm:text-6xl">
+            Vos <span className="italic text-[#C49A58]">cahiers</span>
+          </h1>
+          <p className="max-w-md text-sm leading-relaxed text-[#EAE6DE]/65">
+            Conseils reçus de vos proches, œuvres gardées de côté et mémoire de vos visionnages.
+          </p>
         </div>
 
-        {tab === "to_watch" && toWatchCount >= 2 ? (
-          <button
-            type="button"
-            onClick={() => launchSoloDuel(false)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/35 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-          >
-            <Swords size={14} />
-            Trancher ma liste À voir
-          </button>
-        ) : null}
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-6 border-t border-[#EAE6DE]/10 pt-6">
+          <div className="flex flex-wrap items-center gap-6">
+            {tabs.map((item) => {
+              const active = tab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setTab(item.id)}
+                  className={`inline-flex items-baseline gap-2 pb-1.5 transition ${
+                    active
+                      ? "border-b border-[#C49A58] text-[#EAE6DE]"
+                      : "text-[#EAE6DE]/45 hover:text-[#EAE6DE]/85"
+                  }`}
+                >
+                  <span className="mc-kicker text-[11px]">{item.label}</span>
+                  <span className="font-serif text-lg italic text-[#C49A58]">{item.count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-5">
+            {tab === "to_watch" && toWatchCount >= 2 ? (
+              <button
+                type="button"
+                onClick={() => launchSoloDuel(false)}
+                className="mc-kicker inline-flex items-center gap-2 text-[#A3B99B] transition hover:text-[#EAE6DE]"
+              >
+                <Swords size={13} />
+                <span>Trancher À voir</span>
+              </button>
+            ) : null}
+
+            {toWatchCount >= 2 || received.length >= 2 ? (
+              <button
+                type="button"
+                onClick={() => launchSoloDuel(includeReceivedInDuel)}
+                className="inline-flex items-center gap-2 border-b border-[#C49A58]/60 pb-1 text-xs text-[#EAE6DE] transition hover:border-[#C49A58] hover:text-[#C49A58]"
+              >
+                <Swords size={13} className="text-[#C49A58]" />
+                <span className="mc-kicker text-[#EAE6DE]">Duel de soirée</span>
+              </button>
+            ) : null}
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-1">
         <ErrorNote message={error} />
-        {notice ? <p className="text-sm text-emerald-400">{notice}</p> : null}
+        {notice ? <p className="text-xs text-[#A3B99B]">{notice}</p> : null}
       </div>
 
       {loading ? (
-        <div className="mt-8 flex items-center gap-2 text-sm text-zinc-400">
-          <Loader2 size={16} className="animate-spin" />
-          Chargement de tes listes…
+        <div className="flex items-center gap-2.5 py-6 text-xs text-[#EAE6DE]/55">
+          <Loader2 size={15} className="animate-spin text-[#C49A58]" />
+          <span className="mc-kicker">Ouverture des cahiers…</span>
         </div>
       ) : null}
 
       {tab === "received" ? (
-        <div className="mt-6 grid gap-3.5 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-x-10 gap-y-10 md:grid-cols-2">
           {received.map((item) => {
             const sender = people[item.from_user_id];
             const alreadySaved = savedKeys.has(`${item.media_type}:${item.tmdb_id}`);
@@ -411,57 +418,61 @@ export function ListsView() {
             return (
               <article
                 key={item.id}
-                className="flex gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-3.5 transition hover:border-white/20"
+                className="frame-zoom-in group flex gap-5 border-b border-[#EAE6DE]/12 pb-7"
               >
                 <button
                   type="button"
                   onClick={() => openTitle(item)}
-                  className="h-28 w-20 shrink-0 overflow-hidden rounded-xl bg-zinc-900 transition hover:opacity-90"
+                  className="aspect-[2/3] w-24 shrink-0 overflow-hidden bg-[#202224]"
                 >
-                  <Poster path={item.poster_path} alt={item.title} className="h-full w-full" />
+                  <Poster
+                    path={item.poster_path}
+                    alt={item.title}
+                    className="h-full w-full transition-transform duration-700 ease-out group-hover:scale-105"
+                  />
                 </button>
+
                 <div className="flex min-w-0 flex-1 flex-col justify-between">
                   <div>
+                    <p className="mc-kicker text-[9px] text-[#EAE6DE]/50">
+                      {item.media_type === "movie" ? "Film" : "Série"}
+                      {item.year ? ` · ${item.year}` : ""} ·{" "}
+                      <Link
+                        href={`/membre/${item.from_user_id}`}
+                        className="text-[#C49A58] hover:underline"
+                      >
+                        {sender?.username || sender?.full_name || "Un proche"}
+                      </Link>
+                    </p>
                     <button
                       type="button"
                       onClick={() => openTitle(item)}
-                      className="text-left font-serif text-2xl leading-snug text-[#f4f1ea] transition hover:text-amber-200"
+                      className="mt-1 block text-left font-serif text-2xl leading-snug text-[#EAE6DE] transition hover:text-[#C49A58]"
                     >
                       {item.title}
                     </button>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-zinc-300">
-                        {item.media_type === "movie" ? <Film size={12} /> : <Tv size={12} />}
-                        {item.media_type === "movie" ? "Film" : "Série"}
-                      </span>
-                      {item.year ? <span>{item.year}</span> : null}
-                      <span>·</span>
-                      <Link href={`/membre/${item.from_user_id}`} className="font-medium text-amber-300/90 hover:underline">
-                        {sender?.username || sender?.full_name || "Un ami"}
-                      </Link>
-                    </div>
                     {item.note ? (
-                      <p className="mt-2.5 rounded-xl bg-black/25 px-3 py-2 text-sm leading-relaxed text-zinc-300">
+                      <p className="mt-3 border-l border-[#A3B99B]/60 pl-3.5 font-serif text-base italic leading-relaxed text-[#EAE6DE]/75">
                         « {item.note} »
                       </p>
                     ) : null}
                   </div>
 
-                  <div className="mt-3">
+                  <div className="mt-4">
                     {alreadySaved ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400">
-                        <Check size={14} />
-                        Déjà dans tes listes
+                      <span className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#A3B99B]">
+                        <Check size={12} />
+                        Classé
                       </span>
                     ) : (
                       <button
                         type="button"
                         disabled={Boolean(busyKey)}
-                        className={`${ghostClass} px-3 py-1.5 text-xs`}
                         onClick={() => void keep(item)}
+                        className="mc-kicker inline-flex items-center gap-2 border border-[#EAE6DE]/25 px-3.5 py-1.5 text-[10px] text-[#EAE6DE] transition hover:border-[#C49A58] hover:text-[#C49A58] disabled:opacity-40"
                       >
-                        {isKeeping ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-                        Ajouter à À voir
+                        {isKeeping ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                        <span>Ajouter à À voir</span>
                       </button>
                     )}
                   </div>
@@ -469,92 +480,107 @@ export function ListsView() {
               </article>
             );
           })}
+
           {!loading && received.length === 0 ? (
-            <div className="col-span-full flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 py-12 text-center">
-              <Inbox size={22} className="text-zinc-500" />
-              <p className="mt-2 text-sm text-zinc-400">Aucune recommandation reçue pour l&apos;instant.</p>
+            <div className="col-span-full border-y border-[#EAE6DE]/12 py-14 text-center">
+              <Inbox size={20} className="mx-auto text-[#EAE6DE]/40" />
+              <p className="mt-3 font-serif text-2xl italic text-[#EAE6DE]/70">
+                Aucune recommandation reçue pour l’instant.
+              </p>
             </div>
           ) : null}
         </div>
       ) : (
-        <div className="mt-6 grid gap-3.5 md:grid-cols-2">
+        <div className="grid grid-cols-2 gap-x-7 gap-y-12 sm:grid-cols-3 lg:grid-cols-5">
           {visible.map((item) => {
             const isRemoving = busyKey === `remove:${item.id}`;
             const isChangingStatus = busyKey === `status:${item.id}`;
+            const isWatched = item.status === "watched";
 
             return (
               <article
                 key={item.id}
-                className="flex gap-4 rounded-2xl border border-white/10 bg-white/[0.025] p-3.5 transition hover:border-white/20"
+                className="frame-zoom-in group flex flex-col justify-between border-b border-[#EAE6DE]/10 pb-5"
               >
-                <button
-                  type="button"
-                  onClick={() => openTitle(item)}
-                  className="h-28 w-20 shrink-0 overflow-hidden rounded-xl bg-zinc-900 transition hover:opacity-90"
-                >
-                  <Poster path={item.poster_path} alt={item.title} className="h-full w-full" />
-                </button>
-                <div className="flex min-w-0 flex-1 flex-col justify-between">
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openTitle(item)}
-                        className="text-left font-serif text-2xl leading-snug text-[#f4f1ea] transition hover:text-amber-200"
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => openTitle(item)}
+                    className="block aspect-[2/3] w-full overflow-hidden bg-[#202224] text-left focus:outline-none"
+                  >
+                    <Poster
+                      path={item.poster_path}
+                      alt={item.title}
+                      className={`h-full w-full transition-transform duration-700 ease-out group-hover:scale-105 ${
+                        isWatched ? "grayscale opacity-55" : ""
+                      }`}
+                    />
+                  </button>
+
+                  <div className="mt-3 flex items-start justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openTitle(item)}
+                      className="min-w-0 flex-1 text-left focus:outline-none"
+                    >
+                      <p className="mc-kicker text-[9px] text-[#EAE6DE]/50">
+                        {item.media_type === "movie" ? "Film" : "Série"}
+                        {item.year ? ` · ${item.year}` : ""}
+                      </p>
+                      <h2
+                        className={`mt-1 line-clamp-2 font-serif text-xl leading-snug transition ${
+                          isWatched
+                            ? "text-[#EAE6DE]/55 group-hover:text-[#EAE6DE]"
+                            : "text-[#EAE6DE] group-hover:text-[#C49A58]"
+                        }`}
                       >
                         {item.title}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={Boolean(busyKey)}
-                        onClick={() => void removeItem(item)}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-zinc-400 transition hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-40"
-                        title="Retirer de la liste"
-                      >
-                        {isRemoving ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                        Retirer
-                      </button>
-                    </div>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-zinc-400">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-0.5 text-zinc-300">
-                        {item.media_type === "movie" ? <Film size={12} /> : <Tv size={12} />}
-                        {item.media_type === "movie" ? "Film" : "Série"}
-                      </span>
-                      {item.year ? <span>{item.year}</span> : null}
-                    </div>
-                  </div>
+                      </h2>
+                    </button>
 
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 pt-1">
-                    <Stars value={item.rating ?? 0} onChange={(rating) => void setRating(item, rating)} />
                     <button
                       type="button"
                       disabled={Boolean(busyKey)}
-                      className="rounded-lg border border-white/12 bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-zinc-300 transition hover:border-white/25 hover:text-white disabled:opacity-40"
-                      onClick={() => void setStatus(item, item.status === "watched" ? "to_watch" : "watched")}
+                      onClick={() => void removeItem(item)}
+                      className="p-1 text-[#EAE6DE]/40 transition hover:text-[#EAE6DE] disabled:opacity-35"
+                      title="Retirer"
+                      aria-label={`Retirer ${item.title}`}
                     >
-                      {isChangingStatus
-                        ? "Mise à jour…"
-                        : item.status === "watched"
-                          ? "Remettre à voir"
-                          : "Marquer vu"}
+                      {isRemoving ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                     </button>
                   </div>
+                </div>
+
+                <div className="mt-3 flex flex-col gap-2 border-t border-[#EAE6DE]/10 pt-2.5">
+                  <Stars value={item.rating ?? 0} onChange={(rating) => void setRating(item, rating)} />
+                  <button
+                    type="button"
+                    disabled={Boolean(busyKey)}
+                    onClick={() => void setStatus(item, item.status === "watched" ? "to_watch" : "watched")}
+                    className="mc-kicker text-left text-[9px] text-[#EAE6DE]/65 transition hover:text-[#C49A58] disabled:opacity-40"
+                  >
+                    {isChangingStatus
+                      ? "…"
+                      : item.status === "watched"
+                        ? "Remettre à voir"
+                        : "Marquer vu"}
+                  </button>
                 </div>
               </article>
             );
           })}
+
           {!loading && visible.length === 0 ? (
-            <p className="col-span-full rounded-2xl border border-dashed border-white/10 py-10 text-center text-sm text-zinc-500">
-              Cette liste est vide pour le moment.
+            <p className="col-span-full border-y border-[#EAE6DE]/12 py-14 text-center font-serif text-2xl italic text-[#EAE6DE]/55">
+              Aucune œuvre dans ce cahier pour le moment.
             </p>
           ) : null}
         </div>
       )}
 
-      {/* Modale Duel solo */}
-      <Modal open={duelOpen} title="Duel solo · Choix de la soirée" onClose={() => setDuelOpen(false)}>
-        <div className="mb-4 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs">
-          <label className="inline-flex cursor-pointer items-center gap-2 text-zinc-300">
+      <Modal open={duelOpen} title="Duel de soirée" onClose={() => setDuelOpen(false)}>
+        <div className="mb-5 flex items-center justify-between gap-3 border-b border-[#EAE6DE]/10 pb-3 text-xs">
+          <label className="inline-flex cursor-pointer items-center gap-2 text-[#EAE6DE]/75">
             <input
               type="checkbox"
               checked={includeReceivedInDuel}
@@ -563,44 +589,44 @@ export function ListsView() {
                 setIncludeReceivedInDuel(next);
                 launchSoloDuel(next);
               }}
-              className="accent-amber-400"
+              className="accent-[#C49A58]"
             />
-            Inclure aussi les recommandations reçues
+            <span>Inclure les recommandations reçues</span>
           </label>
           <button
             type="button"
             onClick={() => launchSoloDuel(includeReceivedInDuel)}
-            className="inline-flex items-center gap-1 text-zinc-400 hover:text-white"
+            className="mc-kicker inline-flex items-center gap-1 text-[10px] text-[#EAE6DE]/60 hover:text-[#C49A58]"
           >
-            <RotateCcw size={12} />
-            Mélanger
+            <RotateCcw size={11} />
+            <span>Mélanger</span>
           </button>
         </div>
 
         {!canLaunchSoloDuel || duelPool.length < 2 ? (
-          <div className="space-y-3 py-5 text-center text-sm text-zinc-400">
-            <p>Il faut au moins 2 titres dans ta liste À voir (ou avec les reçus) pour lancer un duel.</p>
+          <div className="space-y-4 py-6 text-center text-sm text-[#EAE6DE]/65">
+            <p>Il faut au moins deux titres dans À voir pour lancer un duel.</p>
             <Link href="/catalogue" onClick={() => setDuelOpen(false)} className={`inline-block ${buttonClass}`}>
-              Explorer le Catalogue
+              Explorer la Cinémathèque
             </Link>
           </div>
         ) : duelWinner ? (
-          <div className="space-y-4 text-center">
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
+          <div className="space-y-5 text-center">
+            <div className="mc-kicker inline-flex items-center gap-1.5 text-[#C49A58]">
               <Trophy size={13} />
-              Gagnant de ta soirée
+              <span>Choix retenu</span>
             </div>
-            <div className="mx-auto w-40 overflow-hidden rounded-2xl border border-amber-300/40">
-              <Poster path={duelWinner.posterPath} alt={duelWinner.title} className="aspect-[2/3] w-full" />
+            <div className="mx-auto aspect-[2/3] w-40 overflow-hidden bg-[#101112]">
+              <Poster path={duelWinner.posterPath} alt={duelWinner.title} className="h-full w-full" />
             </div>
             <div>
-              <h3 className="font-serif text-2xl text-[#f4f1ea]">{duelWinner.title}</h3>
-              <p className="mt-1 text-xs text-zinc-400">
+              <h3 className="font-serif text-3xl text-[#EAE6DE]">{duelWinner.title}</h3>
+              <p className="mc-kicker mt-1 text-[10px] text-[#EAE6DE]/50">
                 {duelWinner.year ? `${duelWinner.year} · ` : ""}
                 {duelWinner.sourceLabel}
               </p>
             </div>
-            <div className="flex flex-wrap justify-center gap-2 pt-2">
+            <div className="flex flex-wrap justify-center gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => void finalizeWinnerInToWatch(duelWinner, false)}
@@ -621,14 +647,14 @@ export function ListsView() {
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between text-xs text-zinc-400">
-              <span>
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <span className="mc-kicker text-[10px] text-[#C49A58]">
                 Manche {challengerIdx} / {duelPool.length - 1}
               </span>
-              <span>Choisis celui qui te tente le plus</span>
+              <span className="mc-kicker text-[10px] text-[#EAE6DE]/50">Lequel retenez-vous ?</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               {[
                 { side: "champion" as const, entry: duelPool[championIdx] },
                 { side: "challenger" as const, entry: duelPool[challengerIdx] },
@@ -638,17 +664,19 @@ export function ListsView() {
                     key={`${side}-${entry.key}`}
                     type="button"
                     onClick={() => chooseDuelSide(side)}
-                    className="group flex flex-col overflow-hidden rounded-2xl border border-white/15 bg-black/30 p-2.5 text-left transition hover:border-amber-300/60 hover:bg-white/[0.04]"
+                    className="group flex flex-col overflow-hidden border border-[#EAE6DE]/12 bg-[#101112]/60 p-2.5 text-left transition hover:border-[#C49A58]"
                   >
-                    <div className="aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/10">
+                    <div className="aspect-[2/3] w-full overflow-hidden bg-[#202224]">
                       <Poster
                         path={entry.posterPath}
                         alt={entry.title}
-                        className="h-full w-full transition duration-300 group-hover:scale-105"
+                        className="h-full w-full transition duration-500 group-hover:scale-105"
                       />
                     </div>
-                    <p className="mt-2.5 line-clamp-2 font-serif text-base leading-snug text-[#f4f1ea]">{entry.title}</p>
-                    <p className="mt-1 text-[11px] text-amber-300/85">{entry.sourceLabel}</p>
+                    <p className="mt-3 line-clamp-2 font-serif text-lg leading-snug text-[#EAE6DE] group-hover:text-[#C49A58]">
+                      {entry.title}
+                    </p>
+                    <p className="mc-kicker mt-1 text-[10px] text-[#EAE6DE]/50">{entry.sourceLabel}</p>
                   </button>
                 ) : null,
               )}

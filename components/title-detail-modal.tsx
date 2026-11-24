@@ -24,22 +24,22 @@ function formatDuration(minutes: number | null) {
   if (!minutes || minutes <= 0) return null;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  return h > 0 ? `${h}h ${m > 0 ? `${m}min` : ""}` : `${m} min`;
+  return h > 0 ? `${h} h ${m > 0 ? `${m.toString().padStart(2, "0")}` : ""}` : `${m} min`;
 }
 
 function StarDisplay({ rating }: { rating: number }) {
   return (
-    <span className="inline-flex items-center gap-0.5 text-emerald-400" aria-label={`${rating} sur 5`}>
+    <span className="inline-flex items-center gap-0.5 text-[#C49A58]" aria-label={`${rating} sur 5`}>
       {[1, 2, 3, 4, 5].map((index) => {
         const full = rating >= index;
         const half = !full && rating >= index - 0.5;
         return (
           <span key={index} className="relative inline-block w-3.5 text-sm leading-none">
-            <span className="text-zinc-700">★</span>
+            <span className="text-[#EAE6DE]/20">★</span>
             {full ? (
-              <span className="absolute inset-0 text-emerald-400">★</span>
+              <span className="absolute inset-0 text-[#C49A58]">★</span>
             ) : half ? (
-              <span className="absolute inset-0 w-1/2 overflow-hidden text-emerald-400">★</span>
+              <span className="absolute inset-0 w-1/2 overflow-hidden text-[#C49A58]">★</span>
             ) : null}
           </span>
         );
@@ -50,13 +50,13 @@ function StarDisplay({ rating }: { rating: number }) {
 
 function LetterboxdStarPicker({ value, onChange }: { value: number; onChange: (val: number) => void }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="inline-flex items-center gap-1 rounded border border-white/10 bg-zinc-950 px-2.5 py-1.5">
+    <div className="flex items-center gap-4">
+      <div className="inline-flex items-center gap-1 border-b border-[#EAE6DE]/15 pb-1">
         <button
           type="button"
           onClick={() => onChange(0)}
-          className={`mr-1 px-1.5 py-0.5 text-[11px] transition ${
-            value === 0 ? "bg-white/15 text-white" : "text-zinc-500 hover:text-zinc-300"
+          className={`mc-kicker mr-1.5 px-1.5 py-0.5 text-[10px] transition ${
+            value === 0 ? "bg-[#C49A58] font-semibold text-[#101112]" : "text-[#EAE6DE]/45 hover:text-[#EAE6DE]"
           }`}
           title="0 étoile"
         >
@@ -67,15 +67,15 @@ function LetterboxdStarPicker({ value, onChange }: { value: number; onChange: (v
           const half = !full && value >= star - 0.5;
           return (
             <div key={star} className="relative h-7 w-7 select-none">
-              <span className="pointer-events-none flex h-full w-full items-center justify-center text-2xl text-zinc-700">
+              <span className="pointer-events-none flex h-full w-full items-center justify-center text-2xl text-[#EAE6DE]/20">
                 ★
               </span>
               {full ? (
-                <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl text-emerald-400">
+                <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl text-[#C49A58]">
                   ★
                 </span>
               ) : half ? (
-                <span className="pointer-events-none absolute inset-y-0 left-0 flex w-1/2 items-center overflow-hidden text-2xl text-emerald-400">
+                <span className="pointer-events-none absolute inset-y-0 left-0 flex w-1/2 items-center overflow-hidden text-2xl text-[#C49A58]">
                   ★
                 </span>
               ) : null}
@@ -95,7 +95,9 @@ function LetterboxdStarPicker({ value, onChange }: { value: number; onChange: (v
           );
         })}
       </div>
-      <span className="text-xs font-medium text-emerald-400">{value > 0 ? `${value} / 5` : "Sans étoile"}</span>
+      <span className="mc-kicker text-[10px] text-[#C49A58]">
+        {value > 0 ? `${value} / 5` : "Sans note"}
+      </span>
     </div>
   );
 }
@@ -287,7 +289,7 @@ export function TitleDetailModal({
     );
 
     setSaving(false);
-    setFeedback("Note et avis enregistrés (marqué comme Vu) !");
+    setFeedback("Note et avis enregistrés (versé aux titres vus).");
     await loadAllData();
   }
 
@@ -300,7 +302,7 @@ export function TitleDetailModal({
     }
     setRating(4);
     setComment("");
-    setFeedback("Ton avis a bien été supprimé.");
+    setFeedback("Avis supprimé.");
     await loadAllData();
   }
 
@@ -329,7 +331,7 @@ export function TitleDetailModal({
     const { error } = await supabase.from("direct_messages").insert({
       sender_id: user.id,
       receiver_id: inviteFriendId,
-      body: `Chaud pour regarder ${title.title} ensemble ?`,
+      body: `On se le fait : ${title.title} ?`,
       tmdb_id: title.tmdbId,
       media_type: title.mediaType,
       movie_title: title.title,
@@ -341,7 +343,7 @@ export function TitleDetailModal({
       return;
     }
     setInviteOpen(false);
-    setFeedback("Invitation « On se le regarde ? » envoyée en message privé !");
+    setFeedback("« On se le fait ? » envoyé en message privé !");
   }
 
   if (!title) return null;
@@ -358,165 +360,177 @@ export function TitleDetailModal({
       : null;
 
   const durationText = formatDuration(meta?.runtime ?? null);
-  const synopsisText = meta?.overview || title.overview || "Aucun synopsis disponible en français pour ce titre.";
+  const synopsisText =
+    meta?.overview || title.overview || "Aucun synopsis disponible en français pour cette œuvre.";
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#101112]/88 p-3 backdrop-blur-sm sm:p-6"
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden border border-white/15 bg-[#0c0c0f] text-[#f4f1ea] shadow-2xl"
+        className="editorial-enter relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border border-[#EAE6DE]/15 bg-[#101112] text-[#EAE6DE]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3.5">
-          <span className="text-xs uppercase tracking-[0.2em] text-zinc-400">
-            {formatLabel(title)}
+        <div className="flex items-center justify-between border-b border-[#EAE6DE]/12 bg-[#202224]/50 px-6 py-4">
+          <span className="mc-kicker text-[10px] text-[#C49A58]">
+            Fiche d’œuvre · {formatLabel(title)}
             {title.year ? ` · ${title.year}` : ""}
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="border border-white/15 px-2.5 py-1 text-xs text-zinc-400 hover:border-white/40 hover:text-white"
+            className="mc-kicker border-b border-[#EAE6DE]/30 pb-0.5 text-[10px] text-[#EAE6DE]/75 transition hover:border-[#C49A58] hover:text-[#EAE6DE]"
           >
-            Fermer ✕
+            Fermer
           </button>
         </div>
 
-        <div className="space-y-6 overflow-y-auto p-5 sm:p-6">
-          <div className="flex flex-col gap-5 sm:flex-row">
-            <div className="mx-auto w-36 shrink-0 overflow-hidden border border-white/15 bg-zinc-950 sm:mx-0 sm:w-44">
+        <div className="space-y-10 overflow-y-auto px-6 py-8 sm:px-10">
+          <div className="flex flex-col gap-8 border-b border-[#EAE6DE]/12 pb-10 sm:flex-row">
+            <div className="frame-zoom-in mx-auto w-44 shrink-0 overflow-hidden bg-[#202224] sm:mx-0 sm:w-52">
               <Poster path={title.posterPath} alt={title.title} className="aspect-[2/3] w-full" />
             </div>
 
-            <div className="flex-1 space-y-3">
-              <h2 className="font-serif text-2xl leading-tight text-[#f4f1ea] sm:text-3xl">{title.title}</h2>
+            <div className="min-w-0 flex-1 space-y-4">
+              <p className="mc-kicker text-[10px] text-[#A3B99B]">
+                {title.genreIds.length > 0 ? genreLabels(title.genreIds, 4).join("  /  ") : formatLabel(title)}
+              </p>
 
-              {/* Durée / Saisons / Épisodes / Genres */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
+              <h2 className="font-serif text-4xl leading-[1.02] tracking-tight text-[#EAE6DE] sm:text-5xl">
+                {title.title}
+              </h2>
+
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-[#EAE6DE]/10 py-3 text-xs">
                 {title.mediaType === "movie" && durationText ? (
-                  <span className="inline-flex items-center gap-1 font-medium text-amber-300">
-                    <Clock size={13} />
-                    {durationText}
+                  <span className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#C49A58]">
+                    <Clock size={12} />
+                    <span>{durationText}</span>
                   </span>
                 ) : null}
                 {title.mediaType === "tv" && (meta?.seasons || meta?.episodes) ? (
-                  <span className="inline-flex items-center gap-1 font-medium text-amber-300">
-                    <Film size={13} />
-                    {meta.seasons ? `${meta.seasons} saison${meta.seasons > 1 ? "s" : ""}` : ""}
-                    {meta.seasons && meta.episodes ? " · " : ""}
-                    {meta.episodes ? `${meta.episodes} épisodes` : ""}
+                  <span className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#C49A58]">
+                    <Film size={12} />
+                    <span>
+                      {meta.seasons ? `${meta.seasons} saison${meta.seasons > 1 ? "s" : ""}` : ""}
+                      {meta.seasons && meta.episodes ? " · " : ""}
+                      {meta.episodes ? `${meta.episodes} épisodes` : ""}
+                    </span>
                   </span>
                 ) : null}
-                {title.genreIds.length > 0 ? (
-                  <span className="uppercase tracking-wider">{genreLabels(title.genreIds, 4).join(" · ")}</span>
-                ) : null}
+                <span className="mc-kicker text-[10px] text-[#EAE6DE]/65">
+                  TMDB :{" "}
+                  <strong className="text-[#EAE6DE]">
+                    {title.voteAverage && title.voteAverage > 0 ? `${title.voteAverage.toFixed(1)}/10` : "—"}
+                  </strong>
+                </span>
+                <span className="mc-kicker text-[10px] text-[#A3B99B]">
+                  Cercle :{" "}
+                  <strong>
+                    {avgMatchCut ? `${avgMatchCut}/5 (${ratedReviews.length})` : "Aucune note"}
+                  </strong>
+                </span>
               </div>
 
-              {/* Réalisateur & Casting */}
               {meta?.director || (meta?.cast && meta.cast.length > 0) ? (
-                <div className="space-y-1 border-l-2 border-white/15 pl-3 text-xs text-zinc-400">
+                <div className="space-y-1.5 border-l border-[#C49A58]/60 pl-4 text-xs text-[#EAE6DE]/75">
                   {meta.director ? (
                     <p>
-                      <span className="text-zinc-500">
-                        {title.mediaType === "movie" ? "Réalisation : " : "Création : "}
+                      <span className="mc-kicker mr-2 text-[9px] text-[#EAE6DE]/45">
+                        {title.mediaType === "movie" ? "Réalisation" : "Création"}
                       </span>
-                      <span className="text-zinc-200">{meta.director}</span>
+                      <span className="font-serif text-lg text-[#EAE6DE]">{meta.director}</span>
                     </p>
                   ) : null}
                   {meta.cast.length > 0 ? (
-                    <p className="flex items-start gap-1">
-                      <Users size={12} className="mt-0.5 shrink-0 text-zinc-500" />
+                    <p className="flex items-start gap-1.5">
+                      <Users size={12} className="mt-1 shrink-0 text-[#EAE6DE]/45" />
                       <span>
-                        <span className="text-zinc-500">Avec : </span>
-                        <span className="text-zinc-300">{meta.cast.join(", ")}</span>
+                        <span className="mc-kicker mr-1.5 text-[9px] text-[#EAE6DE]/45">Avec</span>
+                        <span className="text-[#EAE6DE]/80">{meta.cast.join(", ")}</span>
                       </span>
                     </p>
                   ) : null}
                 </div>
               ) : null}
 
-              <div className="flex flex-wrap gap-2.5 pt-1">
-                <div className="border border-white/10 bg-white/[0.03] px-3 py-1.5">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500">Note TMDB</p>
-                  <p className="text-sm font-semibold text-[#f4f1ea]">
-                    {title.voteAverage && title.voteAverage > 0 ? `${title.voteAverage.toFixed(1)} / 10` : "N/A"}
-                  </p>
-                </div>
-                <div className="border border-white/10 bg-white/[0.03] px-3 py-1.5">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500">Note MatchCut</p>
-                  <p className="text-sm font-semibold text-emerald-400">
-                    {avgMatchCut ? `${avgMatchCut} / 5 (${ratedReviews.length})` : "Aucune note"}
-                  </p>
-                </div>
-              </div>
+              <p className="pt-1 text-sm leading-relaxed text-[#EAE6DE]/80">{synopsisText}</p>
 
-              <p className="text-sm leading-relaxed text-zinc-300">{synopsisText}</p>
-
-              <div className="flex flex-wrap gap-2 pt-2">
+              <div className="flex flex-wrap items-center gap-4 pt-2">
                 {onAddToList ? (
-                  <button type="button" className={`${ghostClass} px-3 py-1.5 text-xs`} onClick={() => onAddToList(title)}>
-                    + Ma liste
+                  <button
+                    type="button"
+                    className={`${ghostClass} px-3.5 py-2 text-xs`}
+                    onClick={() => onAddToList(title)}
+                  >
+                    + À voir
                   </button>
                 ) : null}
                 {onRecommend ? (
-                  <button type="button" className={`${ghostClass} px-3 py-1.5 text-xs`} onClick={() => onRecommend(title)}>
+                  <button
+                    type="button"
+                    className={`${ghostClass} px-3.5 py-2 text-xs`}
+                    onClick={() => onRecommend(title)}
+                  >
                     Recommander
                   </button>
                 ) : null}
                 {user ? (
                   <button
                     type="button"
-                    className="border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20"
+                    className="mc-kicker border-b border-[#A3B99B] pb-1 text-[10px] text-[#A3B99B] transition hover:text-[#EAE6DE]"
                     onClick={() => setInviteOpen((v) => !v)}
                   >
-                    On se le regarde ?
+                    On se le fait ?
                   </button>
                 ) : null}
               </div>
 
               {inviteOpen ? (
-                <div className="mt-2 flex flex-wrap items-center gap-2 border border-emerald-500/30 bg-emerald-950/20 p-3">
-                  <select
-                    className="border border-white/15 bg-[#09090b] px-2.5 py-1.5 text-xs text-white"
-                    value={inviteFriendId}
-                    onChange={(e) => setInviteFriendId(e.target.value)}
-                  >
-                    <option value="">Choisir un ami à inviter...</option>
-                    {friends.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.username || f.full_name || "Ami"}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={!inviteFriendId}
-                    onClick={sendWatchInvite}
-                    className="bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-zinc-950 disabled:opacity-40"
-                  >
-                    Envoyer l&apos;invitation
-                  </button>
+                <div className="mt-3 space-y-2 border-t border-[#EAE6DE]/12 pt-4">
+                  <p className="mc-kicker text-[10px] text-[#A3B99B]">On se le fait ?</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <select
+                      className="py-1.5 text-xs"
+                      value={inviteFriendId}
+                      onChange={(e) => setInviteFriendId(e.target.value)}
+                    >
+                      <option value="">Choisir un ami…</option>
+                      {friends.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.username || f.full_name || "Ami"}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={!inviteFriendId}
+                      onClick={sendWatchInvite}
+                      className="mc-kicker bg-[#A3B99B] px-3.5 py-2 text-[10px] font-semibold text-[#101112] disabled:opacity-40"
+                    >
+                      Envoyer
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </div>
           </div>
 
           {friends.length > 0 && (friendReviews.length > 0 || friendWatchlistIds.size > 0) ? (
-            <div className="border border-white/10 bg-white/[0.03] p-3.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Dans ton cercle d&apos;amis</p>
-              <div className="mt-2 flex flex-wrap gap-2">
+            <div className="border-b border-[#EAE6DE]/12 pb-8">
+              <p className="mc-kicker text-[10px] text-[#C49A58]">Dans votre cercle</p>
+              <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-xs">
                 {friendReviews.map((fr) => (
                   <Link
                     key={fr.id}
                     href={`/membre/${fr.user_id}`}
                     onClick={onClose}
-                    className="inline-flex items-center gap-1.5 border border-white/10 bg-zinc-900 px-2.5 py-1 text-xs hover:border-white/30"
+                    className="inline-flex items-center gap-2 border-b border-[#EAE6DE]/15 pb-1 hover:border-[#C49A58]"
                   >
-                    <span className="font-medium text-white hover:underline">
+                    <span className="font-serif text-base text-[#EAE6DE]">
                       {fr.profiles?.username || fr.profiles?.full_name || "Ami"}
                     </span>
-                    <span className="text-zinc-400">a vu</span>
+                    <span className="mc-kicker text-[9px] text-[#EAE6DE]/50">a vu</span>
                     {Number(fr.rating) > 0 ? <StarDisplay rating={Number(fr.rating)} /> : null}
                   </Link>
                 ))}
@@ -527,58 +541,64 @@ export function TitleDetailModal({
                       key={f.id}
                       href={`/membre/${f.id}`}
                       onClick={onClose}
-                      className="inline-flex items-center gap-1.5 border border-white/10 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-300 hover:border-white/30"
+                      className="inline-flex items-center gap-2 border-b border-[#EAE6DE]/15 pb-1 text-[#EAE6DE]/75 hover:border-[#A3B99B]"
                     >
-                      <span className="font-medium text-white hover:underline">{f.username || f.full_name || "Ami"}</span>{" "}
-                      l&apos;a dans sa liste À voir
+                      <span className="font-serif text-base text-[#EAE6DE]">
+                        {f.username || f.full_name || "Ami"}
+                      </span>
+                      <span className="mc-kicker text-[9px] text-[#A3B99B]">l’a dans À voir</span>
                     </Link>
                   ))}
               </div>
             </div>
           ) : null}
 
-          <hr className="border-white/10" />
-
           {user ? (
-            <form onSubmit={submitReview} className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-serif text-lg text-[#f4f1ea]">Ta note &amp; ton avis</h3>
+            <form onSubmit={submitReview} className="space-y-4 border-b border-[#EAE6DE]/12 pb-10">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="font-serif text-2xl text-[#EAE6DE]">Votre note &amp; impression</h3>
                 <LetterboxdStarPicker value={rating} onChange={setRating} />
               </div>
               <textarea
-                className={`${inputClass} min-h-20 text-sm`}
-                placeholder="Écris ton avis pour tes amis (enregistre la note et marque automatiquement comme Vu)..."
+                className={`${inputClass} min-h-20 rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-sm text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none`}
+                placeholder="Écrivez quelques lignes sur la réalisation, le jeu, l’atmosphère…"
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 maxLength={500}
               />
-              {feedback ? <p className="text-xs text-emerald-400">{feedback}</p> : null}
-              <div className="flex flex-wrap items-center gap-3">
-                <button type="submit" className={`${buttonClass} text-xs`} disabled={saving}>
-                  {saving ? "Enregistrement..." : myReview ? "Mettre à jour mon avis" : "Publier (Marquer comme Vu)"}
+              {feedback ? <p className="text-xs text-[#A3B99B]">{feedback}</p> : null}
+              <div className="flex flex-wrap items-center gap-4 pt-1">
+                <button type="submit" className={buttonClass} disabled={saving}>
+                  <span>{saving ? "Enregistrement…" : myReview ? "Mettre à jour" : "Publier (Marquer vu)"}</span>
                 </button>
                 {myReview ? (
                   <button
                     type="button"
                     onClick={() => deleteReview(myReview.id)}
-                    className="inline-flex items-center gap-1.5 border border-red-500/30 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10"
+                    className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#EAE6DE]/50 hover:text-[#EAE6DE]"
                   >
-                    <Trash2 size={13} />
-                    Supprimer mon avis
+                    <Trash2 size={12} />
+                    <span>Supprimer</span>
                   </button>
                 ) : null}
               </div>
             </form>
           ) : null}
 
-          <div className="space-y-3">
-            <h3 className="font-serif text-lg text-[#f4f1ea]">Avis ({sortedReviews.length})</h3>
+          <div className="space-y-6">
+            <div className="flex items-baseline justify-between">
+              <h3 className="font-serif text-3xl text-[#EAE6DE]">Notes &amp; échanges</h3>
+              <span className="mc-kicker text-[10px]">{sortedReviews.length} contribution{sortedReviews.length > 1 ? "s" : ""}</span>
+            </div>
+
             {loading ? (
-              <p className="text-xs text-zinc-500">Chargement...</p>
+              <p className="mc-kicker text-[10px]">Chargement…</p>
             ) : sortedReviews.length === 0 ? (
-              <p className="text-xs text-zinc-500">Aucun avis pour l&apos;instant. Lance la discussion !</p>
+              <p className="font-serif text-lg italic text-[#EAE6DE]/50">
+                Aucun avis publié pour cette œuvre pour l’instant.
+              </p>
             ) : (
-              <div className="space-y-3">
+              <div className="divide-y divide-[#EAE6DE]/10 border-t border-[#EAE6DE]/10">
                 {sortedReviews.map((rev) => {
                   const isFriend = friendIdsSet.has(rev.user_id);
                   const isMine = user?.id === rev.user_id;
@@ -586,36 +606,32 @@ export function TitleDetailModal({
                   const revReplies = replies.filter((r) => r.review_id === rev.id);
 
                   return (
-                    <div
-                      key={rev.id}
-                      className={`border p-3.5 ${
-                        isFriend ? "border-emerald-500/30 bg-emerald-950/10" : "border-white/10 bg-white/[0.02]"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
+                    <article key={rev.id} className="space-y-3 py-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
                           <Link
                             href={isMine ? "/profil" : `/membre/${rev.user_id}`}
                             onClick={onClose}
-                            className="text-xs font-semibold text-[#f4f1ea] hover:underline"
+                            className="font-serif text-xl text-[#EAE6DE] hover:text-[#C49A58]"
                           >
                             {rev.profiles?.username || rev.profiles?.full_name || "Membre"}
                           </Link>
                           {isFriend ? (
-                            <span className="bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">Ami</span>
+                            <span className="mc-kicker text-[9px] text-[#A3B99B]">Proche</span>
                           ) : null}
                         </div>
+
                         <div className="flex items-center gap-3">
                           {Number(rev.rating) > 0 ? (
                             <StarDisplay rating={Number(rev.rating)} />
                           ) : (
-                            <span className="text-[11px] text-zinc-500">Vu</span>
+                            <span className="mc-kicker text-[9px] text-[#EAE6DE]/45">Vu</span>
                           )}
                           {isMine ? (
                             <button
                               type="button"
                               onClick={() => deleteReview(rev.id)}
-                              className="text-zinc-500 hover:text-red-400"
+                              className="p-1 text-[#EAE6DE]/40 hover:text-[#EAE6DE]"
                               title="Supprimer cet avis"
                             >
                               <Trash2 size={13} />
@@ -624,10 +640,14 @@ export function TitleDetailModal({
                         </div>
                       </div>
 
-                      {rev.comment ? <p className="mt-2 text-sm leading-relaxed text-zinc-200">{rev.comment}</p> : null}
+                      {rev.comment ? (
+                        <p className="border-l border-[#C49A58]/50 pl-4 font-serif text-lg italic leading-relaxed text-[#EAE6DE]/80">
+                          « {rev.comment} »
+                        </p>
+                      ) : null}
 
                       {user ? (
-                        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
                           {QUICK_REACTIONS.map((label) => {
                             const count = revReactions.filter((r) => r.emoji === label).length;
                             const active = revReactions.some((r) => r.emoji === label && r.user_id === user.id);
@@ -636,10 +656,10 @@ export function TitleDetailModal({
                                 key={label}
                                 type="button"
                                 onClick={() => toggleReaction(rev.id, label)}
-                                className={`border px-2 py-0.5 text-[11px] transition ${
+                                className={`mc-kicker border px-2.5 py-1 text-[9px] transition ${
                                   active
-                                    ? "border-emerald-400/50 bg-emerald-400/15 text-emerald-200"
-                                    : "border-white/10 text-zinc-400 hover:border-white/30 hover:text-zinc-200"
+                                    ? "border-[#C49A58] bg-[#C49A58]/15 text-[#EAE6DE]"
+                                    : "border-[#EAE6DE]/12 text-[#EAE6DE]/55 hover:border-[#EAE6DE]/30 hover:text-[#EAE6DE]"
                                 }`}
                               >
                                 {label} {count > 0 ? `(${count})` : ""}
@@ -650,23 +670,23 @@ export function TitleDetailModal({
                       ) : null}
 
                       {revReplies.length > 0 ? (
-                        <div className="mt-3 space-y-1.5 border-l-2 border-white/10 pl-3">
+                        <div className="mt-3 space-y-1.5 border-l border-[#EAE6DE]/15 pl-4">
                           {revReplies.map((rep) => (
                             <div key={rep.id} className="text-xs">
-                              <span className="font-semibold text-zinc-200">
+                              <span className="font-semibold text-[#EAE6DE]">
                                 {rep.profiles?.username || rep.profiles?.full_name || "Membre"} :{" "}
                               </span>
-                              <span className="text-zinc-400">{rep.body}</span>
+                              <span className="text-[#EAE6DE]/65">{rep.body}</span>
                             </div>
                           ))}
                         </div>
                       ) : null}
 
                       {user ? (
-                        <div className="mt-2.5 flex gap-2">
+                        <div className="mt-3 flex gap-3">
                           <input
                             type="text"
-                            placeholder="Répondre à cet avis..."
+                            placeholder="Répondre à cette impression…"
                             value={replyDrafts[rev.id] ?? ""}
                             onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [rev.id]: e.target.value }))}
                             onKeyDown={(e) => {
@@ -675,18 +695,18 @@ export function TitleDetailModal({
                                 void sendReply(rev.id);
                               }
                             }}
-                            className="flex-1 border border-white/10 bg-zinc-950 px-2.5 py-1 text-xs text-white placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
+                            className="flex-1 rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/15 bg-transparent px-0 py-1 text-xs text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none"
                           />
                           <button
                             type="button"
                             onClick={() => sendReply(rev.id)}
-                            className="border border-white/15 px-2.5 py-1 text-xs text-zinc-300 hover:border-white/40"
+                            className="mc-kicker text-[10px] text-[#EAE6DE]/70 hover:text-[#C49A58]"
                           >
                             Répondre
                           </button>
                         </div>
                       ) : null}
-                    </div>
+                    </article>
                   );
                 })}
               </div>

@@ -1,34 +1,37 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
+import { Cormorant_Garamond, Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "@/components/auth-provider";
 import "./globals.css";
 
-const fraunces = Fraunces({
+const cormorantGaramond = Cormorant_Garamond({
   subsets: ["latin"],
-  variable: "--font-fraunces",
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-serif",
   display: "swap",
 });
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-plus-jakarta",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "MatchCut",
-  description: "Choisissez vos films, séries et séances ensemble.",
+  title: "MatchCut — Cahier de Cinéma & Découverte",
+  description: "Revue éditoriale de cinéma, séries, animés et séances partagées.",
   manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#09090b",
+  themeColor: "#101112",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${fraunces.variable} ${plusJakartaSans.variable}`}>
-      <body className="min-h-screen bg-[var(--mc-bg,#09090b)] font-sans text-[#f4f1ea] antialiased selection:bg-amber-400/30 selection:text-amber-100">
+    <html lang="fr" className={`${cormorantGaramond.variable} ${plusJakartaSans.variable}`}>
+      <body className="min-h-screen bg-[#101112] font-sans text-[#EAE6DE] antialiased selection:bg-[#C49A58]/30 selection:text-[#EAE6DE]">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

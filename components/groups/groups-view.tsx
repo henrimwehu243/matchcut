@@ -27,7 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
-import { Avatar, ErrorNote, Modal, PageHeader, Poster, buttonClass, ghostClass, inputClass } from "@/components/ui";
+import { Avatar, ErrorNote, Modal, Poster, buttonClass, ghostClass, inputClass } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { ChatMessage, DirectMessage, Friendship, Group, Profile, SessionPhoto } from "@/lib/types";
 
@@ -118,37 +118,37 @@ const CHAT_THEMES: {
   {
     id: "cinema",
     label: "Cinéma",
-    panelClass: "bg-[#0b0b0e]",
-    bubbleMineClass: "bg-amber-300/15 text-[#f4f1ea] border-amber-300/30",
-    pillClass: "bg-amber-400",
+    panelClass: "bg-[#101112]",
+    bubbleMineClass: "bg-[#C49A58]/18 text-[#EAE6DE] border-[#C49A58]/45",
+    pillClass: "bg-[#C49A58]",
   },
   {
     id: "amber",
     label: "Ambre",
-    panelClass: "bg-[#120e09]",
-    bubbleMineClass: "bg-amber-500/20 text-amber-50 border-amber-400/40",
-    pillClass: "bg-orange-400",
+    panelClass: "bg-[#14110d]",
+    bubbleMineClass: "bg-[#C49A58]/25 text-[#EAE6DE] border-[#C49A58]/60",
+    pillClass: "bg-[#d2aa6a]",
   },
   {
     id: "emerald",
-    label: "Émeraude",
-    panelClass: "bg-[#09120f]",
-    bubbleMineClass: "bg-emerald-500/20 text-emerald-50 border-emerald-400/40",
-    pillClass: "bg-emerald-400",
+    label: "Sauge",
+    panelClass: "bg-[#0e1310]",
+    bubbleMineClass: "bg-[#A3B99B]/20 text-[#EAE6DE] border-[#A3B99B]/55",
+    pillClass: "bg-[#A3B99B]",
   },
   {
     id: "velours",
-    label: "Velours",
-    panelClass: "bg-[#130c12]",
-    bubbleMineClass: "bg-rose-500/20 text-rose-50 border-rose-400/40",
-    pillClass: "bg-rose-400",
+    label: "Anthracite",
+    panelClass: "bg-[#151618]",
+    bubbleMineClass: "bg-[#EAE6DE]/14 text-[#EAE6DE] border-[#EAE6DE]/35",
+    pillClass: "bg-[#EAE6DE]",
   },
   {
     id: "nuit",
-    label: "Nuit",
-    panelClass: "bg-[#090e15]",
-    bubbleMineClass: "bg-sky-500/20 text-sky-50 border-sky-400/40",
-    pillClass: "bg-sky-400",
+    label: "Salle",
+    panelClass: "bg-[#101112]",
+    bubbleMineClass: "bg-[#202224] text-[#EAE6DE] border-[#EAE6DE]/25",
+    pillClass: "bg-[#8fa698]",
   },
 ];
 
@@ -902,7 +902,7 @@ export function GroupsView() {
           totalOwners > 1
             ? `Envie partagée (${totalOwners} membres)`
             : isMe
-            ? "Dans ta liste À voir"
+            ? "Dans votre liste À voir"
             : `Envie de ${personName(uid)}`;
 
         grouped.set(key, {
@@ -939,7 +939,7 @@ export function GroupsView() {
               title: row.title,
               posterPath: row.poster_path,
               year: "",
-              sourceNote: isMe ? "Validé par toi" : `Validé par ${personName(uid)}`,
+              sourceNote: isMe ? "Validé par vous" : `Validé par ${personName(uid)}`,
               isMyPick: isMe,
             },
           });
@@ -994,8 +994,8 @@ export function GroupsView() {
 
   async function shareDuelWinnerInChat(winner: DuelCandidate) {
     if (!user || !activeChat) return;
-    const prefix = duelMode === "favorites" ? "❤️ Favori gagnant du duel soirée" : "🏆 Vainqueur du duel soirée";
-    const text = `${prefix} : ${winner.title}${winner.year ? ` (${winner.year})` : ""} — On lance ça ?`;
+    const prefix = duelMode === "favorites" ? "Favori retenu du duel" : "Choix retenu du duel";
+    const text = `${prefix} : ${winner.title}${winner.year ? ` (${winner.year})` : ""} — On lance cette séance ?`;
     if (activeChat.kind === "group") {
       await supabase.from("messages").insert({ group_id: activeChat.id, user_id: user.id, body: text });
       if (winner.posterPath) {
@@ -1019,7 +1019,7 @@ export function GroupsView() {
       void loadDmFeed(activeChat.friendId);
     }
     setDuelOpen(false);
-    setNotice(`« ${winner.title} » et son affiche ont été partagés dans la discussion !`);
+    setNotice(`« ${winner.title} » partagé dans la discussion.`);
   }
 
   async function addFriend(profile: Profile) {
@@ -1043,7 +1043,7 @@ export function GroupsView() {
         setError(writeError.message);
         return;
       }
-      setNotice(`Demande envoyée à ${profile.username || profile.full_name}.`);
+      setNotice(`Invitation envoyée à ${profile.username || profile.full_name}.`);
       await loadSocial();
     } finally {
       setBusyFriendAction(null);
@@ -1080,7 +1080,7 @@ export function GroupsView() {
         .select("*")
         .single();
       if (groupError || !group) {
-        setError(groupError?.message || "Le groupe n’a pas pu être créé.");
+        setError(groupError?.message || "Le cercle n’a pas pu être créé.");
         return;
       }
       const uniqueMemberIds = [...new Set(memberIds)].filter((id) => id !== user.id);
@@ -1095,7 +1095,7 @@ export function GroupsView() {
       }
       setGroupName("");
       setMemberIds([]);
-      setNotice(`Groupe « ${group.name} » créé.`);
+      setNotice(`Cercle « ${group.name} » créé.`);
       await loadSocial();
       setActiveChat({ kind: "group", id: group.id });
     } finally {
@@ -1129,7 +1129,7 @@ export function GroupsView() {
         setError(updateErr.message);
         return;
       }
-      setNotice("Photo du groupe mise à jour.");
+      setNotice("Visuel du cercle mis à jour.");
       await loadSocial();
     } finally {
       setUploadingGroupAvatar(false);
@@ -1146,7 +1146,7 @@ export function GroupsView() {
       setError(renErr.message);
       return;
     }
-    setNotice("Nom du groupe modifié.");
+    setNotice("Nom du cercle modifié.");
     await loadSocial();
   }
 
@@ -1160,13 +1160,13 @@ export function GroupsView() {
       return;
     }
     setFriendToAddId("");
-    setNotice("Nouveau membre ajouté au groupe.");
+    setNotice("Membre ajouté au cercle.");
     await loadGroupMembers(activeGroup.id);
   }
 
   async function leaveActiveGroup() {
     if (!user || !activeGroup) return;
-    const confirmed = window.confirm(`Quitter définitivement le groupe « ${activeGroup.name} » ?`);
+    const confirmed = window.confirm(`Quitter le cercle « ${activeGroup.name} » ?`);
     if (!confirmed) return;
 
     const { error: leaveErr } = await supabase
@@ -1180,7 +1180,7 @@ export function GroupsView() {
     }
     const leftName = activeGroup.name;
     setActiveChat(null);
-    setNotice(`Vous avez quitté le groupe « ${leftName} ».`);
+    setNotice(`Vous avez quitté « ${leftName} ».`);
     await loadSocial();
   }
 
@@ -1295,61 +1295,56 @@ export function GroupsView() {
   const unlockedBadgesCount = badges.filter((b) => b.level > 0).length;
 
   return (
-    <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <PageHeader
-          kicker="Échanges & soirées"
-          title="Amis & groupes"
-          text="Discute en direct, réponds à un message, partage photos ou clips et tranche vos séances en duel rapide."
-        />
+    <div className="space-y-12">
+      <div className="flex flex-wrap items-end justify-between gap-6 border-b border-[#EAE6DE]/12 pb-10">
+        <div>
+          <p className="mc-kicker">IV — Correspondances &amp; Cercles</p>
+          <h1 className="mt-3 font-serif text-5xl leading-[0.98] tracking-tight text-[#EAE6DE] sm:text-6xl">
+            Proches &amp; <span className="italic text-[#C49A58]">cercles</span>
+          </h1>
+          <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#EAE6DE]/65">
+            {accepted.length} ami{accepted.length > 1 ? "s" : ""} · {groups.length} cercle{groups.length > 1 ? "s" : ""}. Ouvrez une conversation ou lancez un duel de soirée.
+          </p>
+        </div>
+
         {badges.length > 0 ? (
           <button
             type="button"
             onClick={() => setBadgesOpen((v) => !v)}
-            className="mb-6 inline-flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-xs font-medium text-amber-200 transition hover:border-amber-400/60"
+            className="mc-kicker inline-flex items-center gap-2 border-b border-[#C49A58]/60 pb-1 text-[#EAE6DE] transition hover:border-[#C49A58] hover:text-[#C49A58]"
           >
-            <Award size={15} className="text-amber-300" />
+            <Award size={14} className="text-[#C49A58]" />
             <span>
-              Mes badges ({unlockedBadgesCount}/{badges.length})
+              Distinctions ({unlockedBadgesCount}/{badges.length})
             </span>
           </button>
         ) : null}
       </div>
 
       {badgesOpen && badges.length > 0 ? (
-        <section className="mb-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="flex items-center justify-between">
+        <section className="editorial-enter border-b border-[#EAE6DE]/12 pb-10">
+          <div className="flex items-baseline justify-between">
             <div>
-              <h2 className="font-serif text-xl text-[#f4f1ea]">Badges de régularité</h2>
-              <p className="text-xs text-zinc-400">Débloque les paliers Bronze, Argent, Or et Platine sur la durée.</p>
+              <p className="mc-kicker text-[#C49A58]">Repères</p>
+              <h2 className="mt-1 font-serif text-3xl text-[#EAE6DE]">Paliers de régularité</h2>
             </div>
-            <button type="button" onClick={() => setBadgesOpen(false)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/5">
+            <button type="button" onClick={() => setBadgesOpen(false)} className="mc-kicker text-[#EAE6DE]/50 hover:text-[#EAE6DE]">
               <X size={16} />
             </button>
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {badges.map((b) => {
               const pct = b.nextTarget ? Math.min(100, Math.round((b.current / b.nextTarget) * 100)) : 100;
-              const tierStyle =
-                b.level === 4
-                  ? "border-cyan-400/50 bg-cyan-500/10 text-cyan-200"
-                  : b.level === 3
-                  ? "border-amber-400/50 bg-amber-500/10 text-amber-200"
-                  : b.level === 2
-                  ? "border-zinc-300/40 bg-zinc-400/10 text-zinc-200"
-                  : b.level === 1
-                  ? "border-orange-400/40 bg-orange-500/10 text-orange-200"
-                  : "border-white/10 bg-black/20 text-zinc-500";
               return (
-                <div key={b.id} className={`rounded-xl border p-3.5 ${tierStyle}`}>
+                <div key={b.id} className="border-t border-[#EAE6DE]/15 pt-4">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest">{b.tierLabel}</span>
-                    <Trophy size={13} />
+                    <span className="mc-kicker text-[10px] text-[#C49A58]">{b.tierLabel}</span>
+                    <Trophy size={13} className="text-[#A3B99B]" />
                   </div>
-                  <p className="mt-1.5 text-sm font-semibold text-[#f4f1ea]">{b.title}</p>
-                  <p className="mt-1 text-xs opacity-85">{b.description}</p>
-                  <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-black/40">
-                    <div className="h-full rounded-full bg-amber-300 transition-all" style={{ width: `${pct}%` }} />
+                  <p className="mt-2 font-serif text-xl text-[#EAE6DE]">{b.title}</p>
+                  <p className="mt-1 text-xs text-[#EAE6DE]/60">{b.description}</p>
+                  <div className="mt-3 h-px w-full bg-[#EAE6DE]/12">
+                    <div className="h-full bg-[#C49A58] transition-all" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
@@ -1358,44 +1353,42 @@ export function GroupsView() {
         </section>
       ) : null}
 
-      <div className="mb-5 space-y-3">
+      <div className="space-y-1">
         <ErrorNote message={error} />
-        {notice ? <p className="text-sm text-emerald-400">{notice}</p> : null}
+        {notice ? <p className="text-xs text-[#A3B99B]">{notice}</p> : null}
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[350px_minmax(0,1fr)]">
-        <section className="space-y-6">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <label className="block text-xs font-semibold text-zinc-300">
-              Rechercher un pseudo
-              <input
-                className={`${inputClass} mt-2`}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Ex. camille_cine"
-              />
-            </label>
-            <div className="mt-3 space-y-2">
+      <div className="grid gap-10 lg:grid-cols-[350px_minmax(0,1fr)]">
+        <section className="space-y-9 border-r-0 lg:border-r lg:border-[#EAE6DE]/12 lg:pr-8">
+          <div>
+            <label className="mc-kicker block text-[10px]">Rechercher un membre</label>
+            <input
+              className={`${inputClass} mt-2 rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-sm text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none`}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Ex. camille_cine"
+            />
+            <div className="mt-3 divide-y divide-[#EAE6DE]/10">
               {found.map((profile) => {
                 const pending = outgoing.has(profile.id);
                 const friend = friendIds.has(profile.id);
                 const isBusy = busyFriendAction === `add:${profile.id}`;
                 return (
-                  <div key={profile.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-2.5">
+                  <div key={profile.id} className="flex items-center justify-between gap-3 py-2.5">
                     <Link href={`/membre/${profile.id}`} className="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-85">
-                      <Avatar name={profile.username || profile.full_name || "M"} url={profile.avatar_url} size={36} />
+                      <Avatar name={profile.username || profile.full_name || "M"} url={profile.avatar_url} size={32} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-[#f4f1ea]">{profile.full_name || profile.username}</p>
-                        <p className="truncate text-xs text-zinc-400">{profile.username ? `@${profile.username}` : "Voir le profil"}</p>
+                        <p className="truncate text-sm font-medium text-[#EAE6DE]">{profile.full_name || profile.username}</p>
+                        <p className="truncate text-xs text-[#EAE6DE]/50">{profile.username ? `@${profile.username}` : "Fiche"}</p>
                       </div>
                     </Link>
                     <button
                       type="button"
-                      className={`${ghostClass} px-2.5 py-1.5 text-xs`}
+                      className="mc-kicker text-[10px] text-[#C49A58] hover:underline disabled:opacity-40"
                       disabled={friend || pending || Boolean(busyFriendAction)}
                       onClick={() => void addFriend(profile)}
                     >
-                      {friend ? "Ami" : pending ? "Envoyée" : isBusy ? "..." : "Ajouter"}
+                      {friend ? "Ami" : pending ? "Envoyée" : isBusy ? "..." : "Inviter"}
                     </button>
                   </div>
                 );
@@ -1404,25 +1397,22 @@ export function GroupsView() {
           </div>
 
           {incoming.length > 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-              <h2 className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
-                Demandes reçues
-                <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white">{incoming.length}</span>
-              </h2>
-              <div className="mt-3 space-y-2">
+            <div className="border-t border-[#EAE6DE]/12 pt-6">
+              <p className="mc-kicker text-[10px] text-[#C49A58]">Invitations ({incoming.length})</p>
+              <div className="mt-3 divide-y divide-[#EAE6DE]/10">
                 {incoming.map((row) => {
                   const prof = people[row.requester_id];
                   return (
-                    <div key={row.id} className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/20 p-2.5 text-sm">
+                    <div key={row.id} className="flex items-center justify-between gap-2 py-2.5 text-sm">
                       <Link href={`/membre/${row.requester_id}`} className="flex min-w-0 items-center gap-2.5 hover:underline">
-                        <Avatar name={personName(row.requester_id)} url={prof?.avatar_url} size={30} />
-                        <span className="truncate font-medium">{personName(row.requester_id)}</span>
+                        <Avatar name={personName(row.requester_id)} url={prof?.avatar_url} size={28} />
+                        <span className="truncate font-serif text-base text-[#EAE6DE]">{personName(row.requester_id)}</span>
                       </Link>
-                      <span className="flex shrink-0 gap-2 text-xs">
+                      <span className="flex shrink-0 gap-3 text-xs">
                         <button
                           type="button"
                           disabled={Boolean(busyFriendAction)}
-                          className="rounded-lg bg-emerald-500/15 px-2.5 py-1 font-medium text-emerald-300 hover:bg-emerald-500/25"
+                          className="mc-kicker text-[10px] text-[#A3B99B] hover:underline"
                           onClick={() => void respond(row.id, true)}
                         >
                           Accepter
@@ -1430,10 +1420,10 @@ export function GroupsView() {
                         <button
                           type="button"
                           disabled={Boolean(busyFriendAction)}
-                          className="rounded-lg px-2 py-1 text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                          className="mc-kicker text-[10px] text-[#EAE6DE]/45 hover:text-[#EAE6DE]"
                           onClick={() => void respond(row.id, false)}
                         >
-                          Refuser
+                          Décliner
                         </button>
                       </span>
                     </div>
@@ -1444,21 +1434,21 @@ export function GroupsView() {
           ) : null}
 
           {outgoingRows.length > 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-              <h2 className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300">
-                <Clock size={13} className="text-amber-400" />
-                Demandes envoyées ({outgoingRows.length})
-              </h2>
-              <div className="mt-3 space-y-2">
+            <div className="border-t border-[#EAE6DE]/12 pt-6">
+              <p className="mc-kicker inline-flex items-center gap-1.5 text-[10px]">
+                <Clock size={12} className="text-[#C49A58]" />
+                <span>En attente ({outgoingRows.length})</span>
+              </p>
+              <div className="mt-3 divide-y divide-[#EAE6DE]/10">
                 {outgoingRows.map((row) => {
                   const prof = people[row.addressee_id];
                   return (
-                    <div key={row.id} className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs">
+                    <div key={row.id} className="flex items-center justify-between gap-2 py-2 text-xs">
                       <Link href={`/membre/${row.addressee_id}`} className="flex min-w-0 items-center gap-2 hover:underline">
-                        <Avatar name={personName(row.addressee_id)} url={prof?.avatar_url} size={28} />
-                        <span className="truncate text-zinc-200">{personName(row.addressee_id)}</span>
+                        <Avatar name={personName(row.addressee_id)} url={prof?.avatar_url} size={26} />
+                        <span className="truncate text-[#EAE6DE]/80">{personName(row.addressee_id)}</span>
                       </Link>
-                      <span className="text-amber-300/80">En attente</span>
+                      <span className="mc-kicker text-[10px] text-[#C49A58]/80">Envoyée</span>
                     </div>
                   );
                 })}
@@ -1467,21 +1457,21 @@ export function GroupsView() {
           ) : null}
 
           {mutualSuggestions.length > 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-              <h2 className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300">
-                <Sparkles size={13} className="text-amber-400" />
-                Suggestions (amis en commun)
-              </h2>
-              <div className="mt-3 space-y-2">
+            <div className="border-t border-[#EAE6DE]/12 pt-6">
+              <p className="mc-kicker inline-flex items-center gap-1.5 text-[10px]">
+                <Sparkles size={12} className="text-[#A3B99B]" />
+                <span>Affinités communes</span>
+              </p>
+              <div className="mt-3 divide-y divide-[#EAE6DE]/10">
                 {mutualSuggestions.map(({ profile, mutualCount }) => {
                   const isBusy = busyFriendAction === `add:${profile.id}`;
                   return (
-                    <div key={profile.id} className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-black/20 p-2.5">
+                    <div key={profile.id} className="flex items-center justify-between gap-2.5 py-2.5">
                       <Link href={`/membre/${profile.id}`} className="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-85">
-                        <Avatar name={profile.username || profile.full_name || "M"} url={profile.avatar_url} size={34} />
+                        <Avatar name={profile.username || profile.full_name || "M"} url={profile.avatar_url} size={30} />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-[#f4f1ea]">{profile.full_name || profile.username}</p>
-                          <p className="truncate text-xs text-amber-300/85">
+                          <p className="truncate text-sm font-medium text-[#EAE6DE]">{profile.full_name || profile.username}</p>
+                          <p className="mc-kicker truncate text-[10px] text-[#A3B99B]">
                             {mutualCount} ami{mutualCount > 1 ? "s" : ""} en commun
                           </p>
                         </div>
@@ -1490,9 +1480,9 @@ export function GroupsView() {
                         type="button"
                         disabled={Boolean(busyFriendAction)}
                         onClick={() => void addFriend(profile)}
-                        className={`${ghostClass} px-2.5 py-1.5 text-xs`}
+                        className="mc-kicker text-[10px] text-[#C49A58] hover:underline"
                       >
-                        {isBusy ? "..." : "Ajouter"}
+                        {isBusy ? "..." : "Inviter"}
                       </button>
                     </div>
                   );
@@ -1501,9 +1491,61 @@ export function GroupsView() {
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <h2 className="text-xs font-semibold text-zinc-300">Amis ({accepted.length})</h2>
-            <div className="mt-3 space-y-2">
+          {/* 1. Cercles de groupe */}
+          <div className="border-t border-[#EAE6DE]/12 pt-6">
+            <p className="mc-kicker text-[10px] text-[#C49A58]">Cercles ({groups.length})</p>
+            <div className="mt-3 divide-y divide-[#EAE6DE]/10">
+              {groups.map((group) => {
+                const isGroupActive = activeChat?.kind === "group" && activeChat.id === group.id;
+                return (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => setActiveChat({ kind: "group", id: group.id })}
+                    className={`flex w-full items-center justify-between gap-3 py-2.5 text-left transition ${
+                      isGroupActive ? "text-[#C49A58]" : "text-[#EAE6DE]/80 hover:text-[#EAE6DE]"
+                    }`}
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <Avatar name={group.name} url={group.avatar_url} size={30} />
+                      <span className="truncate font-serif text-xl">{group.name}</span>
+                    </span>
+                    <span className="mc-kicker shrink-0 text-[9px] text-[#EAE6DE]/45">Cercle</span>
+                  </button>
+                );
+              })}
+              {groups.length === 0 ? <p className="py-2 text-xs text-[#EAE6DE]/45">Aucun cercle formé.</p> : null}
+            </div>
+
+            <form
+              className="mt-4 space-y-3 border-t border-[#EAE6DE]/10 pt-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void createGroup();
+              }}
+            >
+              <input
+                className={`${inputClass} rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-1.5 text-xs text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none`}
+                value={groupName}
+                onChange={(event) => setGroupName(event.target.value)}
+                placeholder="Nouveau cercle (cochez des amis ci-dessous)…"
+              />
+              <button
+                type="submit"
+                disabled={creatingGroup || groupName.trim().length < 2}
+                className="mc-kicker inline-flex w-full items-center justify-center border border-[#EAE6DE]/25 py-2 text-[10px] text-[#EAE6DE] transition hover:border-[#C49A58] hover:text-[#C49A58] disabled:opacity-35"
+              >
+                <span>{creatingGroup ? "Création…" : "Créer un cercle"}</span>
+              </button>
+            </form>
+          </div>
+
+          {/* 2. Correspondances individuelles / Amis */}
+          <div className="border-t border-[#EAE6DE]/12 pt-6">
+            <p className="mc-kicker text-[10px] text-[#A3B99B]">
+              Amis ({accepted.length})
+            </p>
+            <div className="mt-3 divide-y divide-[#EAE6DE]/10">
               {accepted.map((row) => {
                 const id = row.requester_id === user?.id ? row.addressee_id : row.requester_id;
                 const profile = people[id];
@@ -1512,42 +1554,41 @@ export function GroupsView() {
                 const compat = compatibilityByUser[id];
 
                 return (
-                  <div
-                    key={row.id}
-                    className={`flex items-center gap-2 rounded-xl border p-2.5 text-sm transition ${
-                      isDmActive ? "border-amber-300/50 bg-white/[0.06]" : "border-white/10 bg-black/20"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="rounded accent-amber-400"
-                      title="Sélectionner pour créer un groupe"
-                      checked={memberIds.includes(id)}
-                      onChange={(event) =>
-                        setMemberIds((prev) => (event.target.checked ? [...prev, id] : prev.filter((value) => value !== id)))
-                      }
-                    />
-                    <Link href={`/membre/${id}`} className="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-85">
-                      <Avatar name={personName(id)} url={profile?.avatar_url} size={34} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-[#f4f1ea]">{personName(id)}</p>
-                        {compat ? (
-                          <p className="truncate text-[11px] text-amber-300/85">
-                            {compat.score}% affinité · {compat.label}
+                  <div key={row.id} className="flex items-center justify-between gap-2 py-2.5 text-sm">
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        className="accent-[#C49A58]"
+                        title="Inclure dans un nouveau cercle"
+                        checked={memberIds.includes(id)}
+                        onChange={(event) =>
+                          setMemberIds((prev) => (event.target.checked ? [...prev, id] : prev.filter((value) => value !== id)))
+                        }
+                      />
+                      <Link href={`/membre/${id}`} className="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-85">
+                        <Avatar name={personName(id)} url={profile?.avatar_url} size={30} />
+                        <div className="min-w-0 flex-1">
+                          <p className={`truncate font-serif text-lg ${isDmActive ? "text-[#C49A58]" : "text-[#EAE6DE]"}`}>
+                            {personName(id)}
                           </p>
-                        ) : null}
-                      </div>
-                    </Link>
+                          {compat ? (
+                            <p className="mc-kicker truncate text-[9px] text-[#EAE6DE]/50">
+                              {compat.score}% · {compat.label}
+                            </p>
+                          ) : null}
+                        </div>
+                      </Link>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setActiveChat({ kind: "dm", friendId: id })}
-                      className="relative inline-flex items-center gap-1 rounded-lg border border-white/15 bg-white/[0.03] px-2.5 py-1.5 text-xs text-zinc-200 transition hover:border-white/35"
-                      title="Message direct"
+                      className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#EAE6DE]/70 transition hover:text-[#C49A58]"
+                      title="Ouvrir la discussion privée"
                     >
-                      <MessageCircle size={13} />
-                      <span>Chat</span>
+                      <MessageCircle size={12} />
+                      <span>Privé</span>
                       {unread > 0 ? (
-                        <span className="ml-1 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                        <span className="rounded-full bg-[#C49A58] px-1.5 py-0.5 text-[9px] font-bold leading-none text-[#101112]">
                           {unread}
                         </span>
                       ) : null}
@@ -1555,97 +1596,49 @@ export function GroupsView() {
                   </div>
                 );
               })}
-              {accepted.length === 0 ? <p className="text-xs text-zinc-500">Aucun ami pour le moment.</p> : null}
-            </div>
-          </div>
-
-          <form
-            className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void createGroup();
-            }}
-          >
-            <h2 className="text-xs font-semibold text-zinc-300">Nouveau groupe</h2>
-            <input
-              className={inputClass}
-              value={groupName}
-              onChange={(event) => setGroupName(event.target.value)}
-              placeholder="Nom du groupe"
-            />
-            <button
-              type="submit"
-              disabled={creatingGroup || groupName.trim().length < 2}
-              className={`w-full ${buttonClass} disabled:opacity-40`}
-            >
-              {creatingGroup ? "Création..." : "Créer le groupe"}
-            </button>
-            <p className="text-xs leading-5 text-zinc-400">Coche des amis dans ta liste ci-dessus pour les inclure.</p>
-          </form>
-
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <h2 className="text-xs font-semibold text-zinc-300">Groupes ({groups.length})</h2>
-            <div className="mt-3 space-y-2">
-              {groups.map((group) => {
-                const isGroupActive = activeChat?.kind === "group" && activeChat.id === group.id;
-                return (
-                  <button
-                    key={group.id}
-                    type="button"
-                    onClick={() => setActiveChat({ kind: "group", id: group.id })}
-                    className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
-                      isGroupActive
-                        ? "border-amber-300/50 bg-white/[0.07] text-[#f4f1ea]"
-                        : "border-white/10 bg-black/20 text-zinc-300 hover:border-white/25"
-                    }`}
-                  >
-                    <Avatar name={group.name} url={group.avatar_url} size={34} />
-                    <span className="truncate font-medium">{group.name}</span>
-                  </button>
-                );
-              })}
-              {groups.length === 0 ? <p className="text-xs text-zinc-500">Aucun groupe.</p> : null}
+              {accepted.length === 0 ? <p className="py-2 text-xs text-[#EAE6DE]/45">Aucun ami pour le moment.</p> : null}
             </div>
           </div>
         </section>
 
-        <section className={`flex h-[700px] flex-col overflow-hidden rounded-2xl border border-white/10 transition-colors ${currentChatTheme.panelClass}`}>
+        {/* Zone de discussion active */}
+        <section
+          className={`flex h-[700px] flex-col overflow-hidden border border-[#EAE6DE]/12 transition-colors ${currentChatTheme.panelClass}`}
+        >
           {activeGroup ? (
             <>
-              <header className="border-b border-white/10 bg-white/[0.02] px-5 py-3.5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+              <header className="border-b border-[#EAE6DE]/12 bg-[#202224]/60 px-6 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5">
-                    <Avatar name={activeGroup.name} url={activeGroup.avatar_url} size={44} />
+                    <Avatar name={activeGroup.name} url={activeGroup.avatar_url} size={42} />
                     <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="font-serif text-2xl text-[#f4f1ea]">{activeGroup.name}</h2>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="mc-kicker text-[9px] text-[#C49A58]">Cercle</span>
+                        <h2 className="font-serif text-3xl text-[#EAE6DE]">{activeGroup.name}</h2>
                         {groupAffinityAverage !== null ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-200">
+                          <span className="mc-kicker inline-flex items-center gap-1 text-[10px] text-[#C49A58]">
                             <Flame size={11} />
-                            {groupAffinityAverage}% affinité
+                            {groupAffinityAverage}%
                           </span>
                         ) : null}
-                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] uppercase tracking-wider text-zinc-400">
-                          {myRoleInGroup === "owner" ? "Créateur" : myRoleInGroup === "admin" ? "Admin" : "Membre"}
-                        </span>
                       </div>
-                      <p className="text-xs text-zinc-400">
+                      <p className="text-xs text-[#EAE6DE]/55">
                         {groupMemberIds.length} membre{groupMemberIds.length > 1 ? "s" : ""} ·{" "}
-                        {groupMemberIds.map((id) => (id === user?.id ? "Moi" : personName(id))).join(", ")}
+                        {groupMemberIds.map((id) => (id === user?.id ? "Vous" : personName(id))).join(", ")}
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-black/30 px-2 py-1.5" title="Thème de cette conversation">
-                      <Palette size={13} className="mr-0.5 text-zinc-400" />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1.5" title="Teinte de la salle">
+                      <Palette size={13} className="mr-0.5 text-[#EAE6DE]/50" />
                       {CHAT_THEMES.map((t) => (
                         <button
                           key={t.id}
                           type="button"
                           onClick={() => selectChatTheme(t.id)}
-                          title={`Thème ${t.label}`}
-                          className={`h-3.5 w-3.5 rounded-full ${t.pillClass} ${
-                            currentChatTheme.id === t.id ? "ring-2 ring-white ring-offset-1 ring-offset-zinc-950" : "opacity-55 hover:opacity-100"
+                          title={t.label}
+                          className={`h-3 w-3 rounded-full ${t.pillClass} ${
+                            currentChatTheme.id === t.id ? "ring-2 ring-[#EAE6DE] ring-offset-2 ring-offset-[#101112]" : "opacity-50 hover:opacity-100"
                           }`}
                         />
                       ))}
@@ -1653,42 +1646,40 @@ export function GroupsView() {
                     <button
                       type="button"
                       onClick={() => void prepareDuelSession(duelMode)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/25"
+                      className="mc-kicker inline-flex items-center gap-1.5 border border-[#A3B99B]/50 px-3 py-1.5 text-[10px] text-[#A3B99B] transition hover:bg-[#A3B99B] hover:text-[#101112]"
                     >
-                      <Swords size={14} />
-                      Duel soirée
+                      <Swords size={12} />
+                      <span>Duel</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setGroupSettingsOpen((v) => !v)}
-                      className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
-                        groupSettingsOpen
-                          ? "border-amber-300/50 bg-white/10 text-white"
-                          : "border-white/15 bg-white/[0.02] text-zinc-300 hover:border-white/35"
-                      }`}
+                      className="mc-kicker inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-[#EAE6DE]/75 transition hover:text-[#C49A58]"
                     >
-                      <Settings size={14} />
-                      Gérer
+                      <Settings size={13} />
+                      <span>Réglages</span>
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
-                  <span className="font-medium text-zinc-300">Préférences soirée :</span>
-                  <span className="rounded-md bg-white/[0.05] px-2 py-0.5 text-amber-200">{activeEveningPrefs.vibe}</span>
-                  <span className="rounded-md bg-white/[0.05] px-2 py-0.5 text-zinc-300">{activeEveningPrefs.formatPref}</span>
-                  <span className="rounded-md bg-white/[0.05] px-2 py-0.5 text-zinc-300">{activeEveningPrefs.maxRuntime}</span>
+                <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[#EAE6DE]/55">
+                  <span className="mc-kicker text-[10px]">Soirée :</span>
+                  <span className="text-[#C49A58]">{activeEveningPrefs.vibe}</span>
+                  <span>·</span>
+                  <span>{activeEveningPrefs.formatPref}</span>
+                  <span>·</span>
+                  <span>{activeEveningPrefs.maxRuntime}</span>
                 </div>
 
                 {groupSettingsOpen ? (
-                  <div className="mt-4 space-y-4 rounded-xl border border-white/10 bg-black/45 p-4 text-xs">
-                    <div className="grid gap-2.5 sm:grid-cols-3">
-                      <label className="block text-[11px] text-zinc-400">
-                        Ambiance souhaitée
+                  <div className="mt-4 space-y-4 border-t border-[#EAE6DE]/12 bg-[#101112]/80 p-4 text-xs">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <label className="block text-xs text-[#EAE6DE]/60">
+                        <span className="mc-kicker text-[10px]">Ambiance</span>
                         <select
                           value={activeEveningPrefs.vibe}
                           onChange={(e) => updateEveningPrefs({ vibe: e.target.value })}
-                          className="mt-1 w-full rounded-xl border border-white/15 bg-[#09090b] px-2.5 py-1.5 text-xs text-zinc-200"
+                          className="mt-1.5 w-full"
                         >
                           <option value="Thriller & suspens">Thriller &amp; suspens</option>
                           <option value="Comédie & détente">Comédie &amp; détente</option>
@@ -1696,24 +1687,24 @@ export function GroupsView() {
                           <option value="Drame & émotion">Drame &amp; émotion</option>
                         </select>
                       </label>
-                      <label className="block text-[11px] text-zinc-400">
-                        Format privilégié
+                      <label className="block text-xs text-[#EAE6DE]/60">
+                        <span className="mc-kicker text-[10px]">Format</span>
                         <select
                           value={activeEveningPrefs.formatPref}
                           onChange={(e) => updateEveningPrefs({ formatPref: e.target.value })}
-                          className="mt-1 w-full rounded-xl border border-white/15 bg-[#09090b] px-2.5 py-1.5 text-xs text-zinc-200"
+                          className="mt-1.5 w-full"
                         >
                           <option value="Film (≤ 2h15)">Film (≤ 2h15)</option>
                           <option value="2-3 épisodes de série">2-3 épisodes de série</option>
                           <option value="Peu importe">Peu importe</option>
                         </select>
                       </label>
-                      <label className="block text-[11px] text-zinc-400">
-                        Rythme de soirée
+                      <label className="block text-xs text-[#EAE6DE]/60">
+                        <span className="mc-kicker text-[10px]">Rythme</span>
                         <select
                           value={activeEveningPrefs.maxRuntime}
                           onChange={(e) => updateEveningPrefs({ maxRuntime: e.target.value })}
-                          className="mt-1 w-full rounded-xl border border-white/15 bg-[#09090b] px-2.5 py-1.5 text-xs text-zinc-200"
+                          className="mt-1.5 w-full"
                         >
                           <option value="Soirée tranquille">Soirée tranquille</option>
                           <option value="Marathon / tardif">Marathon / tardif</option>
@@ -1721,31 +1712,28 @@ export function GroupsView() {
                       </label>
                     </div>
 
-                    <div className="space-y-1.5 border-t border-white/10 pt-3">
-                      <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-zinc-300">
-                        <Shield size={12} className="text-amber-300" />
-                        Membres &amp; rôles
+                    <div className="space-y-2 border-t border-[#EAE6DE]/10 pt-3">
+                      <p className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#EAE6DE]/75">
+                        <Shield size={12} className="text-[#C49A58]" />
+                        <span>Membres &amp; rôles</span>
                       </p>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-3">
                         {groupMembersMeta.map((m) => {
                           const isCreator = activeGroup.created_by === m.user_id;
                           const isAdmin = isCreator || m.role === "admin";
                           return (
-                            <div
-                              key={m.user_id}
-                              className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1"
-                            >
-                              <span className="text-zinc-200">
-                                {m.user_id === user?.id ? "Moi" : personName(m.user_id)}
+                            <div key={m.user_id} className="flex items-center gap-2 text-xs">
+                              <span className="text-[#EAE6DE]">
+                                {m.user_id === user?.id ? "Vous" : personName(m.user_id)}
                               </span>
-                              <span className="text-[10px] text-amber-300/90">
+                              <span className="mc-kicker text-[9px] text-[#C49A58]">
                                 {isCreator ? "Créateur" : isAdmin ? "Admin" : "Membre"}
                               </span>
                               {canManageRoles && !isCreator && m.user_id !== user?.id ? (
                                 <button
                                   type="button"
                                   onClick={() => void toggleMemberAdminRole(m.user_id, !isAdmin)}
-                                  className="rounded border border-white/15 px-1.5 py-0.5 text-[10px] text-zinc-300 hover:border-amber-300/40"
+                                  className="mc-kicker text-[9px] text-[#EAE6DE]/60 underline hover:text-[#EAE6DE]"
                                 >
                                   {isAdmin ? "Retirer admin" : "Passer admin"}
                                 </button>
@@ -1756,10 +1744,10 @@ export function GroupsView() {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-3">
-                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/20 bg-white/[0.03] px-3 py-2 text-zinc-200 hover:border-white/40">
-                        <Camera size={14} />
-                        <span>{uploadingGroupAvatar ? "Envoi..." : "Changer la photo du groupe"}</span>
+                    <div className="flex flex-wrap items-center gap-4 border-t border-[#EAE6DE]/10 pt-3">
+                      <label className="mc-kicker inline-flex cursor-pointer items-center gap-2 text-[10px] text-[#EAE6DE]/80 hover:text-[#C49A58]">
+                        <Camera size={13} />
+                        <span>{uploadingGroupAvatar ? "Envoi…" : "Visuel du cercle"}</span>
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/webp"
@@ -1773,21 +1761,21 @@ export function GroupsView() {
                       </label>
 
                       <div className="flex flex-1 items-center gap-2">
-                        <Pencil size={13} className="shrink-0 text-zinc-500" />
+                        <Pencil size={12} className="shrink-0 text-[#EAE6DE]/45" />
                         <input
                           type="text"
                           value={renameDraft}
                           onChange={(e) => setRenameDraft(e.target.value)}
-                          placeholder="Nouveau nom du groupe"
-                          className={`${inputClass} max-w-xs py-1.5 text-xs`}
+                          placeholder="Nouveau nom du cercle"
+                          className={`${inputClass} max-w-xs py-1 text-xs`}
                         />
                         <button
                           type="button"
                           onClick={() => void renameActiveGroup()}
-                          className="inline-flex items-center gap-1 rounded-xl bg-[#f4f1ea] px-3 py-2 font-semibold text-[#09090b]"
+                          className="mc-kicker inline-flex items-center gap-1 bg-[#C49A58] px-3 py-1.5 text-[10px] font-semibold text-[#101112]"
                         >
-                          <Check size={13} />
-                          Renommer
+                          <Check size={12} />
+                          <span>Renommer</span>
                         </button>
                       </div>
                     </div>
@@ -1795,13 +1783,13 @@ export function GroupsView() {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       {invitableFriends.length > 0 ? (
                         <div className="flex items-center gap-2">
-                          <UserPlus size={14} className="text-zinc-400" />
+                          <UserPlus size={13} className="text-[#EAE6DE]/50" />
                           <select
                             value={friendToAddId}
                             onChange={(e) => setFriendToAddId(e.target.value)}
-                            className="rounded-xl border border-white/15 bg-[#09090b] px-2.5 py-1.5 text-xs"
+                            className="py-1 text-xs"
                           >
-                            <option value="">Ajouter un ami au groupe...</option>
+                            <option value="">Ajouter un proche au cercle…</option>
                             {invitableFriends.map((fid) => (
                               <option key={fid} value={fid}>
                                 {personName(fid)}
@@ -1812,29 +1800,29 @@ export function GroupsView() {
                             type="button"
                             disabled={!friendToAddId}
                             onClick={() => void addMemberToActiveGroup()}
-                            className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 font-medium text-emerald-300 disabled:opacity-40"
+                            className="mc-kicker border border-[#A3B99B] px-3 py-1.5 text-[10px] text-[#A3B99B] disabled:opacity-40"
                           >
                             Ajouter
                           </button>
                         </div>
                       ) : (
-                        <span className="text-zinc-400">Tous vos amis sont déjà dans ce groupe.</span>
+                        <span className="text-[#EAE6DE]/50">Tous vos proches sont déjà dans ce cercle.</span>
                       )}
 
                       <button
                         type="button"
                         onClick={() => void leaveActiveGroup()}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/40 px-3 py-1.5 text-rose-300 hover:bg-rose-500/10"
+                        className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#EAE6DE]/55 hover:text-[#EAE6DE]"
                       >
-                        <LogOut size={13} />
-                        Quitter le groupe
+                        <LogOut size={12} />
+                        <span>Quitter</span>
                       </button>
                     </div>
                   </div>
                 ) : null}
               </header>
 
-              <div className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="flex-1 overflow-y-auto px-6 py-5">
                 {feed.map((item, idx) => {
                   const mine = item.user_id === user?.id;
                   const prev = idx > 0 ? feed[idx - 1] : null;
@@ -1862,13 +1850,13 @@ export function GroupsView() {
                     <div
                       key={`${item.kind}-${item.id}`}
                       id={`msg-${item.id}`}
-                      className={`rounded-xl transition ${groupedWithPrev ? "mt-1" : "mt-4"} ${
-                        isHighlighted ? "bg-amber-300/10 ring-1 ring-amber-300/40" : ""
+                      className={`transition ${groupedWithPrev ? "mt-1" : "mt-5"} ${
+                        isHighlighted ? "bg-[#C49A58]/10" : ""
                       }`}
                     >
                       {showDayDivider ? (
-                        <div className="my-4 flex justify-center">
-                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-0.5 text-[11px] text-zinc-400">
+                        <div className="my-5 flex justify-center">
+                          <span className="mc-kicker border-b border-[#EAE6DE]/15 pb-1 text-[10px] text-[#EAE6DE]/45">
                             {dayLabel}
                           </span>
                         </div>
@@ -1879,7 +1867,7 @@ export function GroupsView() {
                           <div className="w-8 shrink-0">
                             {!groupedWithNext ? (
                               <Link href={`/membre/${item.user_id}`} className="block hover:opacity-85">
-                                <Avatar name={personName(item.user_id)} url={prof?.avatar_url} size={32} />
+                                <Avatar name={personName(item.user_id)} url={prof?.avatar_url} size={30} />
                               </Link>
                             ) : null}
                           </div>
@@ -1889,7 +1877,7 @@ export function GroupsView() {
                           {!mine && !groupedWithPrev ? (
                             <Link
                               href={`/membre/${item.user_id}`}
-                              className="mb-1 ml-1 text-[11px] font-medium text-zinc-400 hover:text-zinc-200 hover:underline"
+                              className="mc-kicker mb-1 text-[10px] text-[#EAE6DE]/50 hover:text-[#C49A58]"
                             >
                               {personName(item.user_id)}
                             </Link>
@@ -1898,36 +1886,32 @@ export function GroupsView() {
                           <div className={`relative flex items-center gap-1.5 ${mine ? "flex-row-reverse" : "flex-row"}`}>
                             {item.kind === "message" ? (
                               <div
-                                className={`whitespace-pre-wrap break-words px-4 py-2.5 text-sm leading-relaxed border ${
+                                className={`whitespace-pre-wrap break-words rounded-sm border px-4 py-2.5 text-sm leading-relaxed ${
                                   mine
-                                    ? `${currentChatTheme.bubbleMineClass} ${
-                                        groupedWithPrev ? "rounded-tr-md" : "rounded-tr-2xl"
-                                      } ${groupedWithNext ? "rounded-br-md" : "rounded-br-sm"} rounded-l-2xl`
-                                    : `bg-zinc-900 text-zinc-100 border-white/10 ${
-                                        groupedWithPrev ? "rounded-tl-md" : "rounded-tl-2xl"
-                                      } ${groupedWithNext ? "rounded-bl-md" : "rounded-bl-sm"} rounded-r-2xl`
+                                    ? currentChatTheme.bubbleMineClass
+                                    : "border-[#EAE6DE]/12 bg-[#202224] text-[#EAE6DE]"
                                 }`}
                               >
                                 {item.replyTo ? (
                                   <button
                                     type="button"
                                     onClick={() => scrollToMessage(item.replyTo!.id)}
-                                    className="mb-2 block w-full rounded-lg border-l-2 border-amber-300 bg-black/35 px-2.5 py-1.5 text-left text-[11px] text-zinc-300 hover:bg-black/50"
+                                    className="mb-2 block w-full border-l border-[#C49A58] bg-[#101112]/60 px-2.5 py-1 text-left text-[11px] text-[#EAE6DE]/75 hover:bg-[#101112]"
                                   >
-                                    <span className="font-semibold text-amber-200">{item.replyTo.authorName}</span>
-                                    <p className="line-clamp-1 text-zinc-400">{item.replyTo.preview}</p>
+                                    <span className="font-semibold text-[#C49A58]">{item.replyTo.authorName}</span>
+                                    <p className="line-clamp-1 text-[#EAE6DE]/55">{item.replyTo.preview}</p>
                                   </button>
                                 ) : null}
                                 {item.body}
                               </div>
                             ) : item.mediaKind === "video" ? (
-                              <figure className="max-w-xs overflow-hidden rounded-2xl border border-white/15 bg-zinc-900">
-                                <video src={item.image_url} controls playsInline className="max-h-72 w-full bg-black" />
+                              <figure className="max-w-xs overflow-hidden rounded-sm border border-[#EAE6DE]/15 bg-[#202224]">
+                                <video src={item.image_url} controls playsInline className="max-h-72 w-full bg-[#101112]" />
                               </figure>
                             ) : (
-                              <figure className="max-w-xs overflow-hidden rounded-2xl border border-white/15 bg-zinc-900">
+                              <figure className="max-w-xs overflow-hidden rounded-sm border border-[#EAE6DE]/15 bg-[#202224]">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={item.image_url} alt={item.caption || "Photo de séance"} className="max-h-72 w-full object-cover" />
+                                <img src={item.image_url} alt={item.caption || "Visuel de séance"} className="max-h-72 w-full object-cover" />
                               </figure>
                             )}
 
@@ -1938,11 +1922,11 @@ export function GroupsView() {
                                   onClick={() =>
                                     setReplyDraft({
                                       id: item.id,
-                                      authorName: mine ? "Moi" : personName(item.user_id),
+                                      authorName: mine ? "Vous" : personName(item.user_id),
                                       preview: item.body,
                                     })
                                   }
-                                  className="rounded-full p-1 text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
+                                  className="p-1 text-[#EAE6DE]/45 hover:text-[#EAE6DE]"
                                   title="Répondre"
                                 >
                                   <Reply size={13} />
@@ -1950,7 +1934,7 @@ export function GroupsView() {
                                 <button
                                   type="button"
                                   onClick={() => setReactionPickerFor((prevKey) => (prevKey === targetKey ? null : targetKey))}
-                                  className="rounded-full p-1 text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
+                                  className="p-1 text-[#EAE6DE]/45 hover:text-[#EAE6DE]"
                                   title="Réagir"
                                 >
                                   <SmilePlus size={14} />
@@ -1960,13 +1944,13 @@ export function GroupsView() {
                           </div>
 
                           {reactionPickerFor === targetKey && item.kind === "message" ? (
-                            <div className="mt-1 flex items-center gap-1 rounded-full border border-white/15 bg-zinc-950 px-2 py-1 shadow-lg">
+                            <div className="mt-1 flex items-center gap-1 border border-[#EAE6DE]/15 bg-[#202224] px-2 py-1">
                               {QUICK_REACTIONS.map((emoji) => (
                                 <button
                                   key={emoji}
                                   type="button"
                                   onClick={() => void toggleReaction(targetKey, emoji, "messages", item.id, item.reactions)}
-                                  className="rounded-full px-1.5 py-0.5 text-sm transition hover:scale-125 hover:bg-white/10"
+                                  className="px-1.5 py-0.5 text-sm transition hover:scale-125"
                                 >
                                   {emoji}
                                 </button>
@@ -1975,7 +1959,7 @@ export function GroupsView() {
                           ) : null}
 
                           {activeEmojis.length > 0 && item.kind === "message" ? (
-                            <div className="mt-1 flex flex-wrap gap-1">
+                            <div className="mt-1 flex flex-wrap gap-1.5">
                               {activeEmojis.map(([emoji, users]) => {
                                 const reactedByMe = user ? users.includes(user.id) : false;
                                 return (
@@ -1983,10 +1967,10 @@ export function GroupsView() {
                                     key={emoji}
                                     type="button"
                                     onClick={() => void toggleReaction(targetKey, emoji, "messages", item.id, item.reactions)}
-                                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition ${
+                                    className={`inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-[11px] transition ${
                                       reactedByMe
-                                        ? "border-amber-300/50 bg-amber-300/15 text-amber-100"
-                                        : "border-white/10 bg-white/[0.04] text-zinc-300 hover:border-white/25"
+                                        ? "border-[#C49A58] bg-[#C49A58]/15 text-[#EAE6DE]"
+                                        : "border-[#EAE6DE]/12 bg-[#202224]/70 text-[#EAE6DE]/75 hover:border-[#EAE6DE]/30"
                                     }`}
                                   >
                                     <span>{emoji}</span>
@@ -1998,7 +1982,7 @@ export function GroupsView() {
                           ) : null}
 
                           {!groupedWithNext ? (
-                            <span className="mt-1 px-1 text-[10px] text-zinc-500">{formatTime(item.created_at)}</span>
+                            <span className="mc-kicker mt-1 text-[9px] text-[#EAE6DE]/40">{formatTime(item.created_at)}</span>
                           ) : null}
                         </div>
                       </div>
@@ -2006,23 +1990,23 @@ export function GroupsView() {
                   );
                 })}
                 {feed.length === 0 ? (
-                  <div className="grid h-full place-items-center text-center text-sm text-zinc-500">
-                    La conversation est vide. Lance la discussion ou démarre un duel soirée !
+                  <div className="grid h-full place-items-center text-center font-serif text-xl italic text-[#EAE6DE]/50">
+                    La conversation est ouverte. Lancez la discussion ou un duel de soirée.
                   </div>
                 ) : null}
                 <div ref={endRef} />
               </div>
 
               {replyDraft ? (
-                <div className="flex items-center justify-between gap-2 border-t border-white/10 bg-white/[0.04] px-4 py-2 text-xs">
-                  <div className="min-w-0 border-l-2 border-amber-300 pl-2.5">
-                    <span className="font-semibold text-amber-200">Réponse à {replyDraft.authorName}</span>
-                    <p className="truncate text-zinc-400">{replyDraft.preview}</p>
+                <div className="flex items-center justify-between gap-2 border-t border-[#EAE6DE]/12 bg-[#202224]/70 px-5 py-2 text-xs">
+                  <div className="min-w-0 border-l border-[#C49A58] pl-2.5">
+                    <span className="mc-kicker text-[10px] text-[#C49A58]">Réponse à {replyDraft.authorName}</span>
+                    <p className="truncate text-[#EAE6DE]/65">{replyDraft.preview}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setReplyDraft(null)}
-                    className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white"
+                    className="p-1 text-[#EAE6DE]/50 hover:text-[#EAE6DE]"
                     aria-label="Annuler la réponse"
                   >
                     <X size={14} />
@@ -2031,18 +2015,18 @@ export function GroupsView() {
               ) : null}
 
               <form
-                className="flex items-end gap-2 border-t border-white/10 bg-white/[0.02] p-3"
+                className="flex items-end gap-3 border-t border-[#EAE6DE]/12 bg-[#202224]/40 px-5 py-3.5"
                 onSubmit={(event) => {
                   event.preventDefault();
                   void sendMessage();
                 }}
               >
                 <label
-                  className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl border border-white/15 bg-white/[0.03] text-zinc-300 transition hover:border-white/35"
-                  aria-label="Partager une photo ou une courte vidéo"
-                  title="Photo ou courte vidéo"
+                  className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center border border-[#EAE6DE]/15 text-[#EAE6DE]/75 transition hover:border-[#C49A58] hover:text-[#C49A58]"
+                  aria-label="Partager une image ou une courte vidéo"
+                  title="Image ou courte vidéo"
                 >
-                  <ImagePlus size={16} />
+                  <ImagePlus size={15} />
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
@@ -2056,7 +2040,7 @@ export function GroupsView() {
                 </label>
                 <textarea
                   rows={1}
-                  className={`${inputClass} max-h-28 min-h-[44px] resize-none py-2.5`}
+                  className={`${inputClass} max-h-28 min-h-[40px] resize-none rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-sm text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none`}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={(event) => {
@@ -2065,54 +2049,55 @@ export function GroupsView() {
                       void sendMessage();
                     }
                   }}
-                  placeholder={uploadingMedia ? "Envoi du média..." : "Écrire un message… (Entrée pour envoyer)"}
+                  placeholder={uploadingMedia ? "Envoi du visuel…" : "Écrire un message…"}
                   maxLength={2000}
                 />
                 <button
                   type="submit"
                   disabled={sendingMessage || !draft.trim()}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f4f1ea] text-[#09090b] transition hover:opacity-90 disabled:opacity-40"
+                  className="grid h-10 w-10 shrink-0 place-items-center bg-[#C49A58] text-[#101112] transition hover:bg-[#d2aa6a] disabled:opacity-35"
                   aria-label="Envoyer"
                 >
-                  <Send size={16} />
+                  <Send size={15} />
                 </button>
               </form>
             </>
           ) : activeFriend ? (
             <>
-              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-white/[0.02] px-5 py-3.5">
+              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EAE6DE]/12 bg-[#202224]/60 px-6 py-4">
                 <Link href={`/membre/${activeFriend.id}`} className="flex items-center gap-3 hover:opacity-85">
-                  <Avatar name={personName(activeFriend.id)} url={activeFriend.avatar_url} size={42} />
+                  <Avatar name={personName(activeFriend.id)} url={activeFriend.avatar_url} size={40} />
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="font-serif text-2xl text-[#f4f1ea]">{personName(activeFriend.id)}</h2>
+                    <div className="flex items-center gap-2.5">
+                      <span className="mc-kicker text-[9px] text-[#A3B99B]">Privé</span>
+                      <h2 className="font-serif text-3xl text-[#EAE6DE]">{personName(activeFriend.id)}</h2>
                       {compatibilityByUser[activeFriend.id] ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-200">
+                        <span className="mc-kicker inline-flex items-center gap-1 text-[10px] text-[#C49A58]">
                           <Flame size={11} />
-                          {compatibilityByUser[activeFriend.id].score}% affinité
+                          {compatibilityByUser[activeFriend.id].score}%
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-xs text-zinc-400">
+                    <p className="text-xs text-[#EAE6DE]/55">
                       {compatibilityByUser[activeFriend.id]
                         ? `${compatibilityByUser[activeFriend.id].label} · ${compatibilityByUser[activeFriend.id].commonCount} titre${
                             compatibilityByUser[activeFriend.id].commonCount > 1 ? "s" : ""
                           } en commun`
-                        : "Message direct · Voir le profil"}
+                        : "Correspondance directe"}
                     </p>
                   </div>
                 </Link>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-black/30 px-2 py-1.5" title="Thème de cette conversation">
-                    <Palette size={13} className="mr-0.5 text-zinc-400" />
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5" title="Teinte de la conversation">
+                    <Palette size={13} className="mr-0.5 text-[#EAE6DE]/50" />
                     {CHAT_THEMES.map((t) => (
                       <button
                         key={t.id}
                         type="button"
                         onClick={() => selectChatTheme(t.id)}
-                        title={`Thème ${t.label}`}
-                        className={`h-3.5 w-3.5 rounded-full ${t.pillClass} ${
-                          currentChatTheme.id === t.id ? "ring-2 ring-white ring-offset-1 ring-offset-zinc-950" : "opacity-55 hover:opacity-100"
+                        title={t.label}
+                        className={`h-3 w-3 rounded-full ${t.pillClass} ${
+                          currentChatTheme.id === t.id ? "ring-2 ring-[#EAE6DE] ring-offset-2 ring-offset-[#101112]" : "opacity-50 hover:opacity-100"
                         }`}
                       />
                     ))}
@@ -2120,15 +2105,15 @@ export function GroupsView() {
                   <button
                     type="button"
                     onClick={() => void prepareDuelSession(duelMode)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/25"
+                    className="mc-kicker inline-flex items-center gap-1.5 border border-[#A3B99B]/50 px-3 py-1.5 text-[10px] text-[#A3B99B] transition hover:bg-[#A3B99B] hover:text-[#101112]"
                   >
-                    <Swords size={14} />
-                    Duel soirée
+                    <Swords size={12} />
+                    <span>Duel</span>
                   </button>
                 </div>
               </header>
 
-              <div className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="flex-1 overflow-y-auto px-6 py-5">
                 {dmFeed.map((msg, idx) => {
                   const mine = msg.sender_id === user?.id;
                   const prev = idx > 0 ? dmFeed[idx - 1] : null;
@@ -2157,13 +2142,13 @@ export function GroupsView() {
                     <div
                       key={msg.id}
                       id={`msg-${msg.id}`}
-                      className={`rounded-xl transition ${groupedWithPrev ? "mt-1" : "mt-4"} ${
-                        isHighlighted ? "bg-amber-300/10 ring-1 ring-amber-300/40" : ""
+                      className={`transition ${groupedWithPrev ? "mt-1" : "mt-5"} ${
+                        isHighlighted ? "bg-[#C49A58]/10" : ""
                       }`}
                     >
                       {showDayDivider ? (
-                        <div className="my-4 flex justify-center">
-                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-0.5 text-[11px] text-zinc-400">
+                        <div className="my-5 flex justify-center">
+                          <span className="mc-kicker border-b border-[#EAE6DE]/15 pb-1 text-[10px] text-[#EAE6DE]/45">
                             {dayLabel}
                           </span>
                         </div>
@@ -2173,69 +2158,65 @@ export function GroupsView() {
                         {!mine ? (
                           <div className="w-8 shrink-0">
                             {!groupedWithNext ? (
-                              <Avatar name={personName(msg.sender_id)} url={activeFriend.avatar_url} size={32} />
+                              <Avatar name={personName(msg.sender_id)} url={activeFriend.avatar_url} size={30} />
                             ) : null}
                           </div>
                         ) : null}
 
                         <div className={`flex max-w-[78%] flex-col ${mine ? "items-end" : "items-start"}`}>
                           {msg.movie_title ? (
-                            <div className="flex max-w-md gap-3 rounded-2xl border border-emerald-500/35 bg-emerald-950/25 p-3.5">
+                            <div className="flex max-w-md gap-4 rounded-sm border border-[#A3B99B]/45 bg-[#202224] p-4">
                               {msg.poster_path ? (
-                                <div className="w-16 shrink-0 overflow-hidden rounded-xl border border-white/10">
+                                <div className="w-16 shrink-0 overflow-hidden bg-[#101112]">
                                   <Poster path={msg.poster_path} alt={msg.movie_title} className="aspect-[2/3] w-full" />
                                 </div>
                               ) : null}
                               <div className="flex-1 space-y-2">
-                                <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-300">Proposition séance</p>
-                                <p className="text-sm text-white">{decoded.cleanBody}</p>
+                                <p className="mc-kicker text-[10px] text-[#A3B99B]">Proposition de séance</p>
+                                <p className="font-serif text-xl text-[#EAE6DE]">{decoded.cleanBody}</p>
                                 {msg.invite_status === "pending" && !mine ? (
-                                  <div className="flex gap-2 pt-1">
+                                  <div className="flex gap-3 pt-1">
                                     <button
                                       type="button"
                                       onClick={() => void respondToInvite(msg.id, "accepted")}
-                                      className="rounded-xl bg-emerald-400 px-3 py-1 text-xs font-semibold text-zinc-950"
+                                      className="mc-kicker bg-[#A3B99B] px-3 py-1 text-[10px] font-semibold text-[#101112]"
                                     >
-                                      Chaud !
+                                      Partant
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => void respondToInvite(msg.id, "declined")}
-                                      className="rounded-xl border border-white/20 px-3 py-1 text-xs text-zinc-300"
+                                      className="mc-kicker border border-[#EAE6DE]/25 px-3 py-1 text-[10px] text-[#EAE6DE]/75"
                                     >
                                       Pas ce soir
                                     </button>
                                   </div>
                                 ) : msg.invite_status === "accepted" ? (
-                                  <p className="text-xs font-semibold text-emerald-400">✓ Séance validée (« Chaud ! »)</p>
+                                  <p className="mc-kicker text-[10px] text-[#A3B99B]">Séance acceptée</p>
                                 ) : msg.invite_status === "declined" ? (
-                                  <p className="text-xs text-zinc-400">✕ Décliné (« Pas ce soir »)</p>
+                                  <p className="mc-kicker text-[10px] text-[#EAE6DE]/45">Déclinée</p>
                                 ) : (
-                                  <p className="text-xs text-zinc-400">En attente de réponse...</p>
+                                  <p className="mc-kicker text-[10px] text-[#EAE6DE]/45">En attente</p>
                                 )}
                               </div>
                             </div>
                           ) : (
                             <div className={`relative flex items-center gap-1.5 ${mine ? "flex-row-reverse" : "flex-row"}`}>
                               <div
-                                className={`whitespace-pre-wrap break-words px-4 py-2.5 text-sm leading-relaxed border ${
+                                className={`whitespace-pre-wrap break-words rounded-sm border px-4 py-2.5 text-sm leading-relaxed ${
                                   mine
-                                    ? `${currentChatTheme.bubbleMineClass} ${
-                                        groupedWithPrev ? "rounded-tr-md" : "rounded-tr-2xl"
-                                      } ${groupedWithNext ? "rounded-br-md" : "rounded-br-sm"} rounded-l-2xl`
-                                    : `bg-zinc-900 text-zinc-100 border-white/10 ${
-                                        groupedWithPrev ? "rounded-tl-md" : "rounded-tl-2xl"
-                                      } ${groupedWithNext ? "rounded-bl-md" : "rounded-bl-sm"} rounded-r-2xl`
+                                    ? currentChatTheme.bubbleMineClass
+                                    : "border-[#EAE6DE]/12 bg-[#202224] text-[#EAE6DE]"
                                 }`}
                               >
                                 {decoded.replyTo ? (
                                   <button
                                     type="button"
                                     onClick={() => scrollToMessage(decoded.replyTo!.id)}
-                                    className="mb-2 block w-full rounded-lg border-l-2 border-amber-300 bg-black/35 px-2.5 py-1.5 text-left text-[11px] text-zinc-300 hover:bg-black/50"
+                                    className="mb-2 block w-full border-l border-[#C49A58] bg-[#101112]/60 px-2.5 py-1 text-left text-[11px] text-[#EAE6DE]/75 hover:bg-[#101112]"
                                   >
-                                    <span className="font-semibold text-amber-200">{decoded.replyTo.authorName}</span>
-                                    <p className="line-clamp-1 text-zinc-400">{decoded.replyTo.preview}</p>
+                                    <span className="font-semibold text-[#C49A58]">{decoded.replyTo.authorName}</span>
+                                    <p className="line-clamp-1 text-[#EAE6DE]/55">{decoded.replyTo.preview}</p>
                                   </button>
                                 ) : null}
                                 {decoded.cleanBody}
@@ -2246,11 +2227,11 @@ export function GroupsView() {
                                   onClick={() =>
                                     setReplyDraft({
                                       id: msg.id,
-                                      authorName: mine ? "Moi" : personName(msg.sender_id),
+                                      authorName: mine ? "Vous" : personName(msg.sender_id),
                                       preview: decoded.cleanBody,
                                     })
                                   }
-                                  className="rounded-full p-1 text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
+                                  className="p-1 text-[#EAE6DE]/45 hover:text-[#EAE6DE]"
                                   title="Répondre"
                                 >
                                   <Reply size={13} />
@@ -2258,7 +2239,7 @@ export function GroupsView() {
                                 <button
                                   type="button"
                                   onClick={() => setReactionPickerFor((prevKey) => (prevKey === targetKey ? null : targetKey))}
-                                  className="rounded-full p-1 text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
+                                  className="p-1 text-[#EAE6DE]/45 hover:text-[#EAE6DE]"
                                   title="Réagir"
                                 >
                                   <SmilePlus size={14} />
@@ -2268,13 +2249,13 @@ export function GroupsView() {
                           )}
 
                           {reactionPickerFor === targetKey ? (
-                            <div className="mt-1 flex items-center gap-1 rounded-full border border-white/15 bg-zinc-950 px-2 py-1 shadow-lg">
+                            <div className="mt-1 flex items-center gap-1 border border-[#EAE6DE]/15 bg-[#202224] px-2 py-1">
                               {QUICK_REACTIONS.map((emoji) => (
                                 <button
                                   key={emoji}
                                   type="button"
                                   onClick={() => void toggleReaction(targetKey, emoji, "direct_messages", msg.id, msg.reactions)}
-                                  className="rounded-full px-1.5 py-0.5 text-sm transition hover:scale-125 hover:bg-white/10"
+                                  className="px-1.5 py-0.5 text-sm transition hover:scale-125"
                                 >
                                   {emoji}
                                 </button>
@@ -2283,7 +2264,7 @@ export function GroupsView() {
                           ) : null}
 
                           {activeEmojis.length > 0 ? (
-                            <div className="mt-1 flex flex-wrap gap-1">
+                            <div className="mt-1 flex flex-wrap gap-1.5">
                               {activeEmojis.map(([emoji, users]) => {
                                 const reactedByMe = user ? users.includes(user.id) : false;
                                 return (
@@ -2291,10 +2272,10 @@ export function GroupsView() {
                                     key={emoji}
                                     type="button"
                                     onClick={() => void toggleReaction(targetKey, emoji, "direct_messages", msg.id, msg.reactions)}
-                                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition ${
+                                    className={`inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-[11px] transition ${
                                       reactedByMe
-                                        ? "border-amber-300/50 bg-amber-300/15 text-amber-100"
-                                        : "border-white/10 bg-white/[0.04] text-zinc-300 hover:border-white/25"
+                                        ? "border-[#C49A58] bg-[#C49A58]/15 text-[#EAE6DE]"
+                                        : "border-[#EAE6DE]/12 bg-[#202224]/70 text-[#EAE6DE]/75 hover:border-[#EAE6DE]/30"
                                     }`}
                                   >
                                     <span>{emoji}</span>
@@ -2306,7 +2287,7 @@ export function GroupsView() {
                           ) : null}
 
                           {!groupedWithNext ? (
-                            <span className="mt-1 px-1 text-[10px] text-zinc-500">{formatTime(msg.created_at)}</span>
+                            <span className="mc-kicker mt-1 text-[9px] text-[#EAE6DE]/40">{formatTime(msg.created_at)}</span>
                           ) : null}
                         </div>
                       </div>
@@ -2314,23 +2295,23 @@ export function GroupsView() {
                   );
                 })}
                 {dmFeed.length === 0 ? (
-                  <div className="grid h-full place-items-center text-center text-sm text-zinc-500">
-                    Démarre ta discussion avec {personName(activeFriend.id)} ou lance un duel soirée !
+                  <div className="grid h-full place-items-center text-center font-serif text-xl italic text-[#EAE6DE]/50">
+                    Ouvrez la discussion avec {personName(activeFriend.id)} ou lancez un duel de soirée.
                   </div>
                 ) : null}
                 <div ref={endRef} />
               </div>
 
               {replyDraft ? (
-                <div className="flex items-center justify-between gap-2 border-t border-white/10 bg-white/[0.04] px-4 py-2 text-xs">
-                  <div className="min-w-0 border-l-2 border-amber-300 pl-2.5">
-                    <span className="font-semibold text-amber-200">Réponse à {replyDraft.authorName}</span>
-                    <p className="truncate text-zinc-400">{replyDraft.preview}</p>
+                <div className="flex items-center justify-between gap-2 border-t border-[#EAE6DE]/12 bg-[#202224]/70 px-5 py-2 text-xs">
+                  <div className="min-w-0 border-l border-[#C49A58] pl-2.5">
+                    <span className="mc-kicker text-[10px] text-[#C49A58]">Réponse à {replyDraft.authorName}</span>
+                    <p className="truncate text-[#EAE6DE]/65">{replyDraft.preview}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setReplyDraft(null)}
-                    className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white"
+                    className="p-1 text-[#EAE6DE]/50 hover:text-[#EAE6DE]"
                     aria-label="Annuler la réponse"
                   >
                     <X size={14} />
@@ -2339,7 +2320,7 @@ export function GroupsView() {
               ) : null}
 
               <form
-                className="flex items-end gap-2 border-t border-white/10 bg-white/[0.02] p-3"
+                className="flex items-end gap-3 border-t border-[#EAE6DE]/12 bg-[#202224]/40 px-5 py-3.5"
                 onSubmit={(event) => {
                   event.preventDefault();
                   void sendMessage();
@@ -2347,7 +2328,7 @@ export function GroupsView() {
               >
                 <textarea
                   rows={1}
-                  className={`${inputClass} max-h-28 min-h-[44px] resize-none py-2.5`}
+                  className={`${inputClass} max-h-28 min-h-[40px] resize-none rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-sm text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none`}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={(event) => {
@@ -2356,66 +2337,72 @@ export function GroupsView() {
                       void sendMessage();
                     }
                   }}
-                  placeholder={`Écrire à ${personName(activeFriend.id)}… (Entrée pour envoyer)`}
+                  placeholder={`Écrire à ${personName(activeFriend.id)}…`}
                   maxLength={2000}
                 />
                 <button
                   type="submit"
                   disabled={sendingMessage || !draft.trim()}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f4f1ea] text-[#09090b] transition hover:opacity-90 disabled:opacity-40"
+                  className="grid h-10 w-10 shrink-0 place-items-center bg-[#C49A58] text-[#101112] transition hover:bg-[#d2aa6a] disabled:opacity-35"
                   aria-label="Envoyer"
                 >
-                  <Send size={16} />
+                  <Send size={15} />
                 </button>
               </form>
             </>
           ) : (
-            <div className="grid flex-1 place-items-center px-8 text-center text-sm leading-6 text-zinc-400">
-              Sélectionne un ami ou un groupe à gauche pour ouvrir la discussion ou lancer un duel de soirée.
+            <div className="grid flex-1 place-items-center px-8 text-center">
+              <div className="space-y-2">
+                <p className="mc-kicker text-[#C49A58]">Salon de correspondance</p>
+                <p className="font-serif text-3xl italic text-[#EAE6DE]/75">
+                  Choisissez un cercle ou un ami dans la colonne de gauche.
+                </p>
+              </div>
             </div>
           )}
         </section>
       </div>
 
-      <Modal open={duelOpen} title="Duel de sélection rapide" onClose={() => setDuelOpen(false)}>
-        <div className="mb-4 flex gap-2 rounded-xl border border-white/10 bg-black/30 p-1 text-xs">
+      <Modal open={duelOpen} title="Duel de soirée" onClose={() => setDuelOpen(false)}>
+        <div className="mb-5 flex gap-4 border-b border-[#EAE6DE]/12 pb-3 text-xs">
           <button
             type="button"
             onClick={() => void prepareDuelSession("common")}
-            className={`flex-1 rounded-lg px-3 py-1.5 font-medium transition ${
-              duelMode === "common" ? "bg-[#f4f1ea] text-[#09090b]" : "text-zinc-300 hover:text-white"
+            className={`mc-kicker pb-1 transition ${
+              duelMode === "common" ? "border-b border-[#C49A58] text-[#EAE6DE]" : "text-[#EAE6DE]/45 hover:text-[#EAE6DE]"
             }`}
           >
-            Listes communes
+            Collections communes
           </button>
           <button
             type="button"
             onClick={() => void prepareDuelSession("favorites")}
-            className={`flex-1 rounded-lg px-3 py-1.5 font-medium transition ${
-              duelMode === "favorites" ? "bg-amber-300 text-[#09090b]" : "text-zinc-300 hover:text-white"
+            className={`mc-kicker pb-1 transition ${
+              duelMode === "favorites" ? "border-b border-[#C49A58] text-[#C49A58]" : "text-[#EAE6DE]/45 hover:text-[#EAE6DE]"
             }`}
           >
-            Chacun son favori
+            Favoris en lice
           </button>
         </div>
 
         {duelLoading ? (
-          <p className="py-8 text-center text-sm text-zinc-400">Préparation des affiches en lice…</p>
+          <p className="mc-kicker py-8 text-center">Préparation des affiches…</p>
         ) : duelCandidates.length < 2 ? (
           <div className="space-y-4 py-4 text-center">
-            <p className="text-sm text-zinc-300">Il faut au moins 2 titres dans vos listes pour lancer le duel.</p>
-            <p className="text-xs text-zinc-400">Ajoutez des titres depuis le Catalogue ou Décider.</p>
+            <p className="font-serif text-2xl italic text-[#EAE6DE]/80">
+              Il faut au moins deux titres dans vos collections pour lancer un duel.
+            </p>
             <Link href="/catalogue" onClick={() => setDuelOpen(false)} className={`inline-block ${buttonClass}`}>
-              Ouvrir le Catalogue
+              Ouvrir la Cinémathèque
             </Link>
           </div>
         ) : pickingFavorites ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between text-xs text-zinc-400">
-              <span>Choisis 2 à 4 favoris à défendre dans le duel final</span>
-              <span className="font-semibold text-amber-300">{selectedFavoriteKeys.length}/4</span>
+            <div className="flex items-center justify-between">
+              <span className="mc-kicker text-[10px]">Sélectionnez 2 à 4 favoris</span>
+              <span className="mc-kicker text-[10px] text-[#C49A58]">{selectedFavoriteKeys.length}/4</span>
             </div>
-            <div className="grid max-h-80 grid-cols-2 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-3">
+            <div className="grid max-h-80 grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3">
               {duelCandidates.map((cand) => {
                 const picked = selectedFavoriteKeys.includes(cand.key);
                 return (
@@ -2423,56 +2410,56 @@ export function GroupsView() {
                     key={cand.key}
                     type="button"
                     onClick={() => toggleFavoriteCandidate(cand.key)}
-                    className={`flex flex-col overflow-hidden rounded-xl border p-2 text-left transition ${
+                    className={`flex flex-col overflow-hidden border p-2 text-left transition ${
                       picked
-                        ? "border-amber-300 bg-amber-300/15"
-                        : "border-white/10 bg-black/25 hover:border-white/30"
+                        ? "border-[#C49A58] bg-[#C49A58]/15"
+                        : "border-[#EAE6DE]/12 bg-[#101112]/60 hover:border-[#EAE6DE]/30"
                     }`}
                   >
-                    <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg">
+                    <div className="relative aspect-[2/3] w-full overflow-hidden">
                       <Poster path={cand.posterPath} alt={cand.title} className="h-full w-full" />
                       {picked ? (
-                        <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-0.5 rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-bold text-zinc-950">
-                          <Heart size={10} fill="currentColor" />
-                          Favori
+                        <span className="mc-kicker absolute right-1.5 top-1.5 inline-flex items-center gap-0.5 bg-[#C49A58] px-2 py-0.5 text-[9px] font-bold text-[#101112]">
+                          <Heart size={9} fill="currentColor" />
+                          <span>Choix</span>
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-2 line-clamp-1 font-serif text-sm text-[#f4f1ea]">{cand.title}</p>
-                    <p className="truncate text-[10px] text-zinc-400">{cand.sourceNote}</p>
+                    <p className="mt-2 line-clamp-1 font-serif text-base text-[#EAE6DE]">{cand.title}</p>
+                    <p className="mc-kicker truncate text-[9px] text-[#EAE6DE]/50">{cand.sourceNote}</p>
                   </button>
                 );
               })}
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end pt-2">
               <button
                 type="button"
                 disabled={selectedFavoriteKeys.length < 2}
                 onClick={startFavoritesBracket}
-                className={`${buttonClass} disabled:opacity-40`}
+                className={`${buttonClass} disabled:opacity-35`}
               >
-                Lancer le duel des favoris ({selectedFavoriteKeys.length})
+                Lancer le duel ({selectedFavoriteKeys.length})
               </button>
             </div>
           </div>
         ) : duelWinner ? (
-          <div className="space-y-4 text-center">
-            <p className="text-xs font-semibold uppercase tracking-widest text-amber-300">
-              {duelMode === "favorites" ? "Favori gagnant de la soirée" : "Vainqueur de la soirée"}
+          <div className="space-y-5 text-center">
+            <p className="mc-kicker text-[#C49A58]">
+              {duelMode === "favorites" ? "Favori retenu" : "Titre retenu pour la séance"}
             </p>
-            <div className="mx-auto w-40 overflow-hidden rounded-2xl border border-amber-300/40">
-              <Poster path={duelWinner.posterPath} alt={duelWinner.title} className="aspect-[2/3] w-full" />
+            <div className="mx-auto aspect-[2/3] w-40 overflow-hidden bg-[#101112]">
+              <Poster path={duelWinner.posterPath} alt={duelWinner.title} className="h-full w-full" />
             </div>
             <div>
-              <h3 className="font-serif text-2xl text-[#f4f1ea]">{duelWinner.title}</h3>
-              <p className="mt-1 text-xs text-zinc-400">
+              <h3 className="font-serif text-3xl text-[#EAE6DE]">{duelWinner.title}</h3>
+              <p className="mc-kicker mt-1 text-[10px] text-[#EAE6DE]/50">
                 {duelWinner.year ? `${duelWinner.year} · ` : ""}
                 {duelWinner.sourceNote}
               </p>
             </div>
-            <div className="flex flex-wrap justify-center gap-2 pt-2">
+            <div className="flex flex-wrap justify-center gap-3 pt-2">
               <button type="button" onClick={() => void shareDuelWinnerInChat(duelWinner)} className={buttonClass}>
-                Proposer dans le chat
+                Partager dans la discussion
               </button>
               <button type="button" onClick={() => void prepareDuelSession(duelMode)} className={ghostClass}>
                 Rejouer
@@ -2481,13 +2468,13 @@ export function GroupsView() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-between text-xs text-zinc-400">
-              <span>
+            <div className="flex items-center justify-between">
+              <span className="mc-kicker text-[10px] text-[#C49A58]">
                 Manche {duelChallengerIdx} / {duelPool.length - 1}
               </span>
-              <span>Clique sur celui qui te tente ce soir</span>
+              <span className="mc-kicker text-[10px] text-[#EAE6DE]/50">Sélectionnez une affiche</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               {[
                 { side: "champion" as const, item: duelPool[duelChampionIdx] },
                 { side: "challenger" as const, item: duelPool[duelChallengerIdx] },
@@ -2497,17 +2484,19 @@ export function GroupsView() {
                     key={`${side}-${item.key}`}
                     type="button"
                     onClick={() => pickDuelSide(side)}
-                    className="group flex flex-col overflow-hidden rounded-2xl border border-white/15 bg-black/30 p-2.5 text-left transition hover:border-amber-300/60 hover:bg-white/[0.04]"
+                    className="group flex flex-col overflow-hidden border border-[#EAE6DE]/12 bg-[#101112]/60 p-2.5 text-left transition hover:border-[#C49A58]"
                   >
-                    <div className="aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/10">
+                    <div className="aspect-[2/3] w-full overflow-hidden bg-[#202224]">
                       <Poster
                         path={item.posterPath}
                         alt={item.title}
-                        className="h-full w-full transition duration-300 group-hover:scale-105"
+                        className="h-full w-full transition duration-500 group-hover:scale-105"
                       />
                     </div>
-                    <p className="mt-2.5 line-clamp-2 font-serif text-base leading-snug text-[#f4f1ea]">{item.title}</p>
-                    <p className="mt-1 text-[11px] text-amber-300/85">{item.sourceNote}</p>
+                    <p className="mt-3 line-clamp-2 font-serif text-lg leading-snug text-[#EAE6DE] group-hover:text-[#C49A58]">
+                      {item.title}
+                    </p>
+                    <p className="mc-kicker mt-1 text-[10px] text-[#EAE6DE]/50">{item.sourceNote}</p>
                   </button>
                 ) : null,
               )}

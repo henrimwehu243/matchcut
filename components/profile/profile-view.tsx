@@ -25,7 +25,7 @@ import {
 import { BADGES, type BadgeDef, type Stats } from "@/lib/badges";
 import { useAuth } from "@/components/auth-provider";
 import { TitleDetailModal } from "@/components/title-detail-modal";
-import { Avatar, ErrorNote, Modal, PageHeader, Poster, buttonClass, ghostClass, inputClass } from "@/components/ui";
+import { Avatar, ErrorNote, Modal, Poster, buttonClass, ghostClass, inputClass } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { Title, WatchItem } from "@/lib/types";
 
@@ -65,25 +65,25 @@ const EMPTY: Stats = {
 export function BadgeIcon({ icon }: { icon: BadgeDef["icon"] }) {
   switch (icon) {
     case "clapper":
-      return <Clapperboard size={18} />;
+      return <Clapperboard size={16} />;
     case "star":
-      return <Star size={18} />;
+      return <Star size={16} />;
     case "bookmark":
-      return <Bookmark size={18} />;
+      return <Bookmark size={16} />;
     case "users":
-      return <Users size={18} />;
+      return <Users size={16} />;
     case "popcorn":
-      return <Popcorn size={18} />;
+      return <Popcorn size={16} />;
     case "heart":
-      return <Heart size={18} />;
+      return <Heart size={16} />;
     case "trophy":
-      return <Trophy size={18} />;
+      return <Trophy size={16} />;
     case "send":
-      return <Send size={18} />;
+      return <Send size={16} />;
     case "film":
-      return <Film size={18} />;
+      return <Film size={16} />;
     default:
-      return <Award size={18} />;
+      return <Award size={16} />;
   }
 }
 
@@ -100,14 +100,12 @@ export function ProfileView() {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Signature cinématographique (devise + ambiance + top 4 favoris façon pellicule)
   const [signatureQuote, setSignatureQuote] = useState("");
   const [signatureMood, setSignatureMood] = useState<string>(MOOD_PRESETS[0]);
   const [favorites, setFavorites] = useState<FavoriteSlot[]>([]);
   const [favoritePickerOpen, setFavoritePickerOpen] = useState(false);
   const [inspectTitle, setInspectTitle] = useState<Title | null>(null);
 
-  // État pour le recadrage + zoom de la photo de profil
   const [cropSourceUrl, setCropSourceUrl] = useState<string | null>(null);
   const [cropFileType, setCropFileType] = useState<string>("image/jpeg");
   const [zoom, setZoom] = useState<number>(1);
@@ -159,7 +157,6 @@ export function ProfileView() {
     setSignatureMood(next.mood);
     setFavorites(next.favorites.slice(0, 4));
 
-    // Tentative optionnelle si les colonnes existent côté Supabase (ignorée sans erreur sinon)
     await supabase
       .from("profiles")
       .update({
@@ -381,7 +378,7 @@ export function ProfileView() {
 
       await refreshProfile();
       closeCropper();
-      setNotice("Photo cadrée et enregistrée.");
+      setNotice("Portrait cadré et enregistré.");
     } finally {
       setBusy(false);
     }
@@ -426,7 +423,7 @@ export function ProfileView() {
     });
     setBusy(false);
     await refreshProfile();
-    setNotice("Profil et signature ciné mis à jour.");
+    setNotice("Fiche et signature ciné enregistrées.");
   }
 
   function getInviteUrl() {
@@ -449,12 +446,12 @@ export function ProfileView() {
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       try {
         await navigator.share({
-          title: "Rejoins-moi sur MatchCut",
-          text: "Viens choisir nos films et séries ensemble sur MatchCut :",
+          title: "Rejoignez-moi sur MatchCut",
+          text: "Découvrons des films, séries et animés ensemble sur MatchCut :",
           url: link,
         });
       } catch {
-        // L'utilisateur a annulé le partage natif
+        // annulé
       }
     } else {
       copyInviteLink();
@@ -470,10 +467,10 @@ export function ProfileView() {
     ["À voir", stats.toWatch],
     ["Vus", stats.watched],
     ["Notes", stats.ratings],
-    ["Amis", stats.friends],
-    ["Groupes", stats.groups],
+    ["Proches", stats.friends],
+    ["Cercles", stats.groups],
     ["Envois", stats.sent],
-    ["Matchs", stats.matches],
+    ["Accords", stats.matches],
   ] as const;
 
   const inviteHandle = (profile?.username || username || "").trim().toLowerCase();
@@ -482,41 +479,48 @@ export function ProfileView() {
   const recentWatched = libraryItems.filter((w) => w.status === "watched").slice(0, 4);
 
   return (
-    <div className="max-w-5xl">
-      <PageHeader
-        kicker="Carte de projection"
-        title="Profil cinématographique"
-        text="Ta signature ciné, tes favoris épinglés, tes listes, tes trophées et ta fiche personnelle."
-      />
-
-      <div className="mb-6 space-y-3">
-        <ErrorNote message={error} />
-        {notice ? <p className="text-sm text-emerald-400">{notice}</p> : null}
+    <div className="space-y-20">
+      {/* En-tête éditorial */}
+      <div className="border-b border-[#EAE6DE]/12 pb-10">
+        <p className="mc-kicker">VII — Fiche personnelle &amp; Signature</p>
+        <div className="mt-3 flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <h1 className="font-serif text-5xl leading-[0.98] tracking-tight text-[#EAE6DE] sm:text-6xl lg:text-7xl">
+            Portrait <span className="italic text-[#C49A58]">ciné</span>
+          </h1>
+          <p className="max-w-md text-sm leading-relaxed text-[#EAE6DE]/65">
+            Votre ligne éditoriale, vos quatre œuvres épinglées, vos repères chiffrés et vos distinctions.
+          </p>
+        </div>
       </div>
 
-      {/* Signature Cinématographique éditoriale */}
-      <section className="mb-10 overflow-hidden rounded-3xl border border-amber-300/20 bg-gradient-to-br from-[#161310] via-[#0e0e12] to-[#09090b] p-6 shadow-2xl sm:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/10 pb-5">
-          <div className="flex items-center gap-4">
-            <Avatar name={fullName || username || "M"} url={profile?.avatar_url} size={64} />
+      <div className="space-y-1">
+        <ErrorNote message={error} />
+        {notice ? <p className="text-xs text-[#A3B99B]">{notice}</p> : null}
+      </div>
+
+      {/* Signature éditoriale & pellicule de 4 favoris */}
+      <section className="editorial-enter border-b border-[#EAE6DE]/12 pb-16">
+        <div className="flex flex-wrap items-start justify-between gap-6 border-b border-[#EAE6DE]/10 pb-8">
+          <div className="flex items-center gap-5">
+            <Avatar name={fullName || username || "M"} url={profile?.avatar_url} size={72} />
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-200">
-                  <Sparkles size={11} />
-                  Signature Ciné
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="mc-kicker inline-flex items-center gap-1.5 text-[10px] text-[#C49A58]">
+                  <Sparkles size={12} />
+                  <span>Signature</span>
                 </span>
-                <span className="text-xs text-zinc-400">{signatureMood}</span>
+                <span className="mc-kicker text-[10px] text-[#A3B99B]">{signatureMood}</span>
               </div>
-              <h2 className="mt-1.5 font-serif text-3xl text-[#f4f1ea]">
+              <h2 className="mt-1.5 font-serif text-4xl text-[#EAE6DE] sm:text-5xl">
                 {fullName || username || "Cinéphile MatchCut"}
               </h2>
               {signatureQuote ? (
-                <p className="mt-1 font-serif text-base italic text-amber-100/90">« {signatureQuote} »</p>
+                <p className="mt-2 font-serif text-xl italic text-[#EAE6DE]/85">« {signatureQuote} »</p>
               ) : bio ? (
-                <p className="mt-1 max-w-xl text-sm text-zinc-300">{bio}</p>
+                <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#EAE6DE]/70">{bio}</p>
               ) : (
-                <p className="mt-1 text-xs text-zinc-400">
-                  Ajoute une phrase signature et épingle jusqu&apos;à 4 favoris pour donner du relief à ta carte.
+                <p className="mt-2 text-xs text-[#EAE6DE]/50">
+                  Renseignez une phrase signature et épinglez jusqu’à quatre œuvres phares.
                 </p>
               )}
             </div>
@@ -525,20 +529,22 @@ export function ProfileView() {
           <button
             type="button"
             onClick={() => setFavoritePickerOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300/40 bg-amber-300/10 px-3.5 py-2 text-xs font-semibold text-amber-200 transition hover:bg-amber-300/20"
+            className="mc-kicker inline-flex items-center gap-2 border-b border-[#C49A58] pb-1.5 text-[10px] text-[#EAE6DE] transition hover:text-[#C49A58]"
           >
-            <Plus size={14} />
-            Choisir mes favoris ({favorites.length}/4)
+            <Plus size={13} className="text-[#C49A58]" />
+            <span>Sélection ({favorites.length}/4)</span>
           </button>
         </div>
 
-        {/* Pellicule des 4 favoris numérotés */}
-        <div className="mt-5">
-          <div className="mb-3 flex items-center justify-between text-xs text-zinc-400">
-            <span className="font-semibold uppercase tracking-widest text-zinc-400">Pellicule favorite</span>
-            <span>{favorites.length > 0 ? "Clique sur une affiche pour voir la fiche" : "Aucun favori épinglé"}</span>
+        <div className="mt-8">
+          <div className="mb-6 flex items-baseline justify-between">
+            <span className="mc-kicker text-[10px]">Quatre affiches de référence</span>
+            <span className="mc-kicker text-[10px] text-[#EAE6DE]/45">
+              {favorites.length > 0 ? "Cliquez pour ouvrir la fiche" : "Aucun titre épinglé"}
+            </span>
           </div>
-          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
             {[0, 1, 2, 3].map((slotIdx) => {
               const fav = favorites[slotIdx];
               const frameNumber = `0${slotIdx + 1}`;
@@ -548,20 +554,17 @@ export function ProfileView() {
                     key={frameNumber}
                     type="button"
                     onClick={() => setFavoritePickerOpen(true)}
-                    className="group flex aspect-[2/3] flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-white/[0.015] p-4 text-center transition hover:border-amber-300/45 hover:bg-white/[0.03]"
+                    className="group flex aspect-[2/3] flex-col items-center justify-center border border-dashed border-[#EAE6DE]/15 bg-[#202224]/30 p-4 text-center transition hover:border-[#C49A58]"
                   >
-                    <span className="font-mono text-xs text-amber-300/70">#{frameNumber}</span>
-                    <Plus size={20} className="mt-2 text-zinc-500 transition group-hover:text-amber-300" />
-                    <span className="mt-2 text-xs text-zinc-400">Épingler un favori</span>
+                    <span className="mc-kicker text-[10px] text-[#C49A58]">#{frameNumber}</span>
+                    <Plus size={18} className="mt-3 text-[#EAE6DE]/40 transition group-hover:text-[#C49A58]" />
+                    <span className="mc-kicker mt-2 text-[9px] text-[#EAE6DE]/50">Épingler</span>
                   </button>
                 );
               }
 
               return (
-                <div
-                  key={`${fav.mediaType}:${fav.tmdbId}`}
-                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/15 bg-zinc-950 transition hover:border-amber-300/50"
-                >
+                <div key={`${fav.mediaType}:${fav.tmdbId}`} className="frame-zoom-in group flex flex-col">
                   <button
                     type="button"
                     onClick={() =>
@@ -578,24 +581,26 @@ export function ProfileView() {
                         popularity: 0,
                       })
                     }
-                    className="relative aspect-[2/3] w-full overflow-hidden text-left"
+                    className="relative aspect-[2/3] w-full overflow-hidden bg-[#202224] text-left focus:outline-none"
                   >
                     <Poster
                       path={fav.posterPath}
                       alt={fav.title}
-                      className="h-full w-full transition duration-300 group-hover:scale-105"
+                      className="h-full w-full transition-transform duration-700 ease-out group-hover:scale-105"
                     />
-                    <span className="absolute left-2 top-2 rounded-md border border-white/20 bg-black/75 px-2 py-0.5 font-mono text-[11px] font-semibold text-amber-200 backdrop-blur-xs">
+                    <span className="mc-kicker absolute left-2.5 top-2.5 bg-[#101112]/85 px-2 py-0.5 text-[10px] text-[#C49A58]">
                       #{frameNumber}
                     </span>
                   </button>
-                  <div className="flex items-center justify-between gap-1.5 bg-zinc-950/95 px-3 py-2.5">
-                    <p className="truncate font-serif text-sm text-[#f4f1ea]">{fav.title}</p>
+                  <div className="mt-2.5 flex items-center justify-between gap-2 border-b border-[#EAE6DE]/10 pb-2">
+                    <p className="truncate font-serif text-lg text-[#EAE6DE] group-hover:text-[#C49A58]">
+                      {fav.title}
+                    </p>
                     <button
                       type="button"
                       onClick={() => toggleFavoriteTitle(fav)}
-                      className="rounded-md p-1 text-zinc-500 hover:bg-white/10 hover:text-rose-300"
-                      title="Retirer des favoris"
+                      className="p-1 text-[#EAE6DE]/40 transition hover:text-[#EAE6DE]"
+                      title="Retirer"
                     >
                       <X size={13} />
                     </button>
@@ -607,13 +612,15 @@ export function ProfileView() {
         </div>
       </section>
 
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_290px]">
-        <form onSubmit={save} className="space-y-4">
-          <h3 className="text-xs font-semibold uppercase tracking-widest text-zinc-400">Identité &amp; signature</h3>
-          <div className="flex items-center gap-4">
-            <Avatar name={fullName || username || "M"} url={profile?.avatar_url} size={76} />
-            <label className="cursor-pointer rounded-xl border border-white/15 bg-white/[0.03] px-3.5 py-2 text-sm text-zinc-200 transition hover:border-white/35">
-              Choisir et cadrer une photo
+      {/* Formulaire d'identité + Repères & Invitation */}
+      <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <form onSubmit={save} className="space-y-6">
+          <p className="mc-kicker text-[10px] text-[#C49A58]">Identité &amp; ligne éditoriale</p>
+
+          <div className="flex items-center gap-5">
+            <Avatar name={fullName || username || "M"} url={profile?.avatar_url} size={72} />
+            <label className="mc-kicker cursor-pointer border-b border-[#EAE6DE]/30 pb-1 text-[10px] text-[#EAE6DE]/85 transition hover:border-[#C49A58] hover:text-[#C49A58]">
+              <span>Choisir et cadrer un portrait</span>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -625,18 +632,29 @@ export function ProfileView() {
               />
             </label>
           </div>
-          <label className="block text-sm text-zinc-300">
-            Nom
-            <input className={`${inputClass} mt-2`} value={fullName} onChange={(event) => setFullName(event.target.value)} />
+
+          <label className="block text-xs text-[#EAE6DE]/75">
+            <span className="mc-kicker text-[10px]">Nom</span>
+            <input
+              className={`${inputClass} mt-2 rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-sm text-[#EAE6DE] focus:border-[#C49A58] focus:outline-none`}
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+            />
           </label>
-          <label className="block text-sm text-zinc-300">
-            Pseudo
-            <input className={`${inputClass} mt-2`} value={username} onChange={(event) => setUsername(event.target.value)} />
+
+          <label className="block text-xs text-[#EAE6DE]/75">
+            <span className="mc-kicker text-[10px]">Pseudo</span>
+            <input
+              className={`${inputClass} mt-2 rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-sm text-[#EAE6DE] focus:border-[#C49A58] focus:outline-none`}
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+            />
           </label>
-          <label className="block text-sm text-zinc-300">
-            Ambiance ciné
+
+          <label className="block text-xs text-[#EAE6DE]/75">
+            <span className="mc-kicker text-[10px]">Orientation de visionnage</span>
             <select
-              className={`${inputClass} mt-2`}
+              className="mt-2 w-full"
               value={signatureMood}
               onChange={(event) => setSignatureMood(event.target.value)}
             >
@@ -647,55 +665,59 @@ export function ProfileView() {
               ))}
             </select>
           </label>
-          <label className="block text-sm text-zinc-300">
-            Phrase signature
+
+          <label className="block text-xs text-[#EAE6DE]/75">
+            <span className="mc-kicker text-[10px]">Phrase signature</span>
             <input
-              className={`${inputClass} mt-2`}
+              className={`${inputClass} mt-2 rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-sm text-[#EAE6DE] placeholder:text-[#EAE6DE]/35 focus:border-[#C49A58] focus:outline-none`}
               value={signatureQuote}
               maxLength={140}
               placeholder="Ex. Thrillers nocturnes, animés marquants et séances à rallonge"
               onChange={(event) => setSignatureQuote(event.target.value)}
             />
           </label>
-          <label className="block text-sm text-zinc-300">
-            Bio
+
+          <label className="block text-xs text-[#EAE6DE]/75">
+            <span className="mc-kicker text-[10px]">Note biographique</span>
             <textarea
-              className={`${inputClass} mt-2 min-h-24`}
+              className={`${inputClass} mt-2 min-h-24 rounded-none border-x-0 border-t-0 border-b border-[#EAE6DE]/20 bg-transparent px-0 py-2 text-sm text-[#EAE6DE] focus:border-[#C49A58] focus:outline-none`}
               value={bio}
               maxLength={280}
               onChange={(event) => setBio(event.target.value)}
             />
           </label>
-          {since ? <p className="text-xs text-zinc-500">Membre depuis {since}</p> : null}
+
+          {since ? <p className="mc-kicker text-[10px] text-[#EAE6DE]/45">Membre depuis {since}</p> : null}
+
           <button type="submit" className={buttonClass} disabled={busy}>
-            {busy ? <Loader2 size={16} className="animate-spin" /> : null}
-            Enregistrer le profil
+            {busy ? <Loader2 size={15} className="animate-spin" /> : null}
+            <span>Enregistrer</span>
           </button>
         </form>
 
-        <aside className="space-y-8">
+        <aside className="space-y-10 border-t border-[#EAE6DE]/12 pt-8 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
           {inviteHandle ? (
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.05] p-4">
-              <h2 className="text-xs font-semibold text-emerald-300">Inviter un ami</h2>
-              <p className="mt-1.5 text-xs leading-5 text-zinc-300">
-                Partage ce lien : dès que ton ami crée son compte, vous êtes ajoutés en amis.
+            <div className="border-b border-[#EAE6DE]/12 pb-8">
+              <p className="mc-kicker text-[10px] text-[#A3B99B]">Invitation</p>
+              <p className="mt-2 text-xs leading-relaxed text-[#EAE6DE]/65">
+                Partagez ce lien : dès l’inscription d’un proche, la relation s’établit automatiquement.
               </p>
-              <div className="mt-3 flex flex-col gap-2">
+              <div className="mt-4 flex flex-col gap-3">
                 <button
                   type="button"
                   onClick={copyInviteLink}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#f4f1ea] px-3 py-2.5 text-xs font-semibold text-[#09090b] transition hover:bg-white"
+                  className="mc-kicker inline-flex w-full items-center justify-center gap-2 bg-[#C49A58] px-4 py-2.5 text-[10px] font-semibold text-[#101112] transition hover:bg-[#d2aa6a]"
                 >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                  {copied ? "Lien copié !" : "Copier mon lien d’invitation"}
+                  {copied ? <Check size={13} /> : <Copy size={13} />}
+                  <span>{copied ? "Lien copié" : "Copier le lien"}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => void shareInviteLink()}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2 text-xs font-medium text-zinc-200 transition hover:border-white/35"
+                  className="mc-kicker inline-flex w-full items-center justify-center gap-2 border border-[#EAE6DE]/20 px-4 py-2 text-[10px] text-[#EAE6DE]/80 transition hover:border-[#EAE6DE]"
                 >
-                  <Share2 size={14} />
-                  Partager
+                  <Share2 size={13} />
+                  <span>Partager</span>
                 </button>
               </div>
             </div>
@@ -703,14 +725,16 @@ export function ProfileView() {
 
           <div>
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold text-zinc-400">Statistiques</h2>
-              {loadingStats ? <Loader2 size={13} className="animate-spin text-zinc-500" /> : null}
+              <p className="mc-kicker text-[10px]">Repères chiffrés</p>
+              {loadingStats ? <Loader2 size={12} className="animate-spin text-[#EAE6DE]/45" /> : null}
             </div>
-            <dl className="mt-3 grid grid-cols-2 gap-2.5">
+            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-5">
               {figures.map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5">
-                  <dt className="text-xs text-zinc-400">{label}</dt>
-                  <dd className="mt-0.5 font-serif text-3xl text-[#f4f1ea]">{loadingStats ? "…" : value}</dd>
+                <div key={label} className="border-b border-[#EAE6DE]/10 pb-2.5">
+                  <dt className="mc-kicker text-[9px] text-[#EAE6DE]/50">{label}</dt>
+                  <dd className="mt-1 font-serif text-3xl text-[#EAE6DE]">
+                    {loadingStats ? "…" : value}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -718,25 +742,26 @@ export function ProfileView() {
         </aside>
       </div>
 
-      {/* Aperçu des listes (À voir & Vus) */}
-      <section className="mt-12 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Aperçu des collections */}
+      <section className="border-t border-[#EAE6DE]/12 pt-16">
+        <div className="flex flex-wrap items-baseline justify-between gap-4 border-b border-[#EAE6DE]/10 pb-6">
           <div>
-            <h2 className="font-serif text-2xl text-[#f4f1ea]">Mes listes</h2>
-            <p className="text-xs text-zinc-400">
-              {stats.toWatch} titre{stats.toWatch > 1 ? "s" : ""} à voir · {stats.watched} vu{stats.watched > 1 ? "s" : ""}
-            </p>
+            <p className="mc-kicker text-[10px]">Aperçu des cahiers</p>
+            <h2 className="mt-1 font-serif text-4xl text-[#EAE6DE]">Collections récentes</h2>
           </div>
-          <Link href="/listes" className={`${ghostClass} px-3.5 py-2 text-xs`}>
-            Ouvrir toutes mes listes
+          <Link
+            href="/listes"
+            className="mc-kicker border-b border-[#EAE6DE]/30 pb-1 text-[10px] text-[#EAE6DE]/80 hover:border-[#C49A58] hover:text-[#C49A58]"
+          >
+            Voir toutes les collections
           </Link>
         </div>
 
-        <div className="mt-5 grid gap-6 md:grid-cols-2">
+        <div className="mt-8 grid gap-12 md:grid-cols-2">
           <div>
-            <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-amber-300/90">À voir récemment</h3>
+            <p className="mc-kicker mb-4 text-[10px] text-[#C49A58]">À voir ({stats.toWatch})</p>
             {recentToWatch.length > 0 ? (
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
                 {recentToWatch.map((item) => (
                   <button
                     key={item.id}
@@ -755,26 +780,32 @@ export function ProfileView() {
                         popularity: 0,
                       })
                     }
-                    className="group overflow-hidden rounded-xl border border-white/10 bg-zinc-950 text-left transition hover:border-amber-300/40"
+                    className="group text-left focus:outline-none"
                   >
-                    <div className="aspect-[2/3] w-full overflow-hidden">
-                      <Poster path={item.poster_path} alt={item.title} className="h-full w-full" />
+                    <div className="aspect-[2/3] w-full overflow-hidden bg-[#202224]">
+                      <Poster
+                        path={item.poster_path}
+                        alt={item.title}
+                        className="h-full w-full transition-transform duration-700 ease-out group-hover:scale-105"
+                      />
                     </div>
-                    <p className="truncate px-2 py-1.5 font-serif text-xs text-[#f4f1ea]">{item.title}</p>
+                    <p className="mt-2 truncate font-serif text-base text-[#EAE6DE] group-hover:text-[#C49A58]">
+                      {item.title}
+                    </p>
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-zinc-500">
-                Aucun titre dans À voir pour l&apos;instant.
+              <p className="border-y border-[#EAE6DE]/10 py-8 text-center font-serif text-lg italic text-[#EAE6DE]/45">
+                Aucun titre dans À voir.
               </p>
             )}
           </div>
 
           <div>
-            <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-emerald-300/90">Derniers titres vus</h3>
+            <p className="mc-kicker mb-4 text-[10px] text-[#A3B99B]">Déjà vus ({stats.watched})</p>
             {recentWatched.length > 0 ? (
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
                 {recentWatched.map((item) => (
                   <button
                     key={item.id}
@@ -793,79 +824,86 @@ export function ProfileView() {
                         popularity: 0,
                       })
                     }
-                    className="group overflow-hidden rounded-xl border border-white/10 bg-zinc-950 text-left transition hover:border-emerald-300/40"
+                    className="group text-left focus:outline-none"
                   >
-                    <div className="aspect-[2/3] w-full overflow-hidden">
-                      <Poster path={item.poster_path} alt={item.title} className="h-full w-full" />
+                    <div className="aspect-[2/3] w-full overflow-hidden bg-[#202224]">
+                      <Poster
+                        path={item.poster_path}
+                        alt={item.title}
+                        className="h-full w-full grayscale opacity-60 transition-transform duration-700 ease-out group-hover:scale-105"
+                      />
                     </div>
-                    <p className="truncate px-2 py-1.5 font-serif text-xs text-[#f4f1ea]">{item.title}</p>
+                    <p className="mt-2 truncate font-serif text-base text-[#EAE6DE]/60 group-hover:text-[#EAE6DE]">
+                      {item.title}
+                    </p>
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-zinc-500">
-                Aucun titre marqué comme vu pour l&apos;instant.
+              <p className="border-y border-[#EAE6DE]/10 py-8 text-center font-serif text-lg italic text-[#EAE6DE]/45">
+                Aucun titre marqué comme vu.
               </p>
             )}
           </div>
         </div>
       </section>
 
-      {/* Trophées & badges */}
-      <section className="mt-12">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-400">
-            Trophées &amp; badges ({unlockedCount}/{BADGES.length})
-          </h2>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Distinctions */}
+      <section className="border-t border-[#EAE6DE]/12 pt-16">
+        <p className="mc-kicker text-[10px]">
+          Distinctions ({unlockedCount}/{BADGES.length})
+        </p>
+        <h2 className="mt-1 font-serif text-4xl text-[#EAE6DE]">Repères de parcours</h2>
+
+        <div className="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
           {BADGES.map((badge) => {
             const value = badge.value(stats);
             const unlocked = value >= badge.goal;
             return (
               <article
                 key={badge.id}
-                className={`rounded-2xl border px-4 py-4 transition ${
-                  unlocked ? badge.accent : "border-white/10 bg-white/[0.015] opacity-60"
+                className={`border-t pt-4 transition ${
+                  unlocked ? "border-[#C49A58]" : "border-[#EAE6DE]/10 opacity-50"
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    <span className={unlocked ? "" : "text-zinc-500"}>
+                    <span className={unlocked ? "text-[#C49A58]" : "text-[#EAE6DE]/45"}>
                       <BadgeIcon icon={badge.icon} />
                     </span>
-                    <h3 className="font-serif text-2xl text-[#f4f1ea]">{badge.name}</h3>
+                    <h3 className="font-serif text-2xl text-[#EAE6DE]">{badge.name}</h3>
                   </div>
-                  <span className="text-xs font-medium opacity-85">
+                  <span className="mc-kicker text-[10px] text-[#EAE6DE]/55">
                     {Math.min(value, badge.goal)}/{badge.goal}
                   </span>
                 </div>
-                <p className="mt-2 text-sm text-zinc-300">{badge.detail}</p>
-                <p className="mt-3 text-xs font-semibold">{unlocked ? "✦ Débloqué" : "En cours"}</p>
+                <p className="mt-2 text-xs leading-relaxed text-[#EAE6DE]/65">{badge.detail}</p>
+                <p className="mc-kicker mt-3 text-[9px] text-[#A3B99B]">
+                  {unlocked ? "Acquis" : "En cours"}
+                </p>
               </article>
             );
           })}
         </div>
       </section>
 
-      {/* Modale de sélection des 4 favoris */}
       <Modal
         open={favoritePickerOpen}
-        title="Pellicule favorite (jusqu'à 4 titres)"
+        title="Quatre affiches de référence"
         onClose={() => setFavoritePickerOpen(false)}
       >
-        <p className="mb-4 text-xs text-zinc-400">
-          Clique sur un titre de tes listes pour l&apos;épingler ou le retirer de ta signature ciné ({favorites.length}/4).
+        <p className="mb-4 text-xs text-[#EAE6DE]/60">
+          Sélectionnez jusqu’à quatre œuvres de vos collections ({favorites.length}/4).
         </p>
         {libraryItems.length === 0 ? (
-          <div className="space-y-3 py-6 text-center text-sm text-zinc-400">
-            <p>Ajoute d&apos;abord des films ou séries dans tes listes pour les épingler ici.</p>
+          <div className="space-y-4 py-6 text-center text-sm text-[#EAE6DE]/65">
+            <p>Ajoutez d’abord des titres dans vos collections pour les épingler ici.</p>
             <Link href="/catalogue" onClick={() => setFavoritePickerOpen(false)} className={`inline-block ${buttonClass}`}>
-              Explorer le Catalogue
+              Ouvrir la Cinémathèque
             </Link>
           </div>
         ) : (
-          <div className="grid max-h-80 grid-cols-2 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-3">
+          <div className="grid max-h-80 grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3">
             {libraryItems.map((item) => {
               const isSelected = favorites.some((f) => f.mediaType === item.media_type && f.tmdbId === item.tmdb_id);
               return (
@@ -881,66 +919,65 @@ export function ProfileView() {
                       year: item.year ?? "",
                     })
                   }
-                  className={`flex flex-col overflow-hidden rounded-xl border p-2 text-left transition ${
+                  className={`flex flex-col overflow-hidden border p-2 text-left transition ${
                     isSelected
-                      ? "border-amber-300 bg-amber-300/15"
-                      : "border-white/10 bg-black/25 hover:border-white/30"
+                      ? "border-[#C49A58] bg-[#C49A58]/15"
+                      : "border-[#EAE6DE]/12 bg-[#101112]/60 hover:border-[#EAE6DE]/30"
                   }`}
                 >
-                  <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg">
+                  <div className="relative aspect-[2/3] w-full overflow-hidden">
                     <Poster path={item.poster_path} alt={item.title} className="h-full w-full" />
                     {isSelected ? (
-                      <span className="absolute right-1.5 top-1.5 rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-bold text-zinc-950">
-                        Favori
+                      <span className="mc-kicker absolute right-1.5 top-1.5 bg-[#C49A58] px-2 py-0.5 text-[9px] font-bold text-[#101112]">
+                        Épinglé
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-2 line-clamp-1 font-serif text-sm text-[#f4f1ea]">{item.title}</p>
-                  <p className="text-[10px] text-zinc-400">{item.status === "watched" ? "Vu" : "À voir"}</p>
+                  <p className="mt-2 line-clamp-1 font-serif text-base text-[#EAE6DE]">{item.title}</p>
+                  <p className="mc-kicker text-[9px] text-[#EAE6DE]/50">{item.status === "watched" ? "Vu" : "À voir"}</p>
                 </button>
               );
             })}
           </div>
         )}
-        <div className="mt-4 flex justify-end">
+        <div className="mt-5 flex justify-end">
           <button type="button" onClick={() => setFavoritePickerOpen(false)} className={buttonClass}>
             Terminé
           </button>
         </div>
       </Modal>
 
-      {/* Recadrage avatar */}
       {cropSourceUrl ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#101112]/88 p-4 backdrop-blur-sm"
           onClick={closeCropper}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-white/15 bg-zinc-950 p-6 shadow-2xl"
+            className="w-full max-w-md border border-[#EAE6DE]/15 bg-[#202224] p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="font-serif text-2xl text-[#f4f1ea]">Cadrer la photo</h2>
+              <h2 className="font-serif text-3xl text-[#EAE6DE]">Cadrer le portrait</h2>
               <button
                 type="button"
                 onClick={closeCropper}
-                className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white"
+                className="p-1 text-[#EAE6DE]/55 hover:text-[#EAE6DE]"
                 aria-label="Fermer"
               >
                 <X size={18} />
               </button>
             </div>
-            <p className="mt-1 text-xs text-zinc-400">
-              Faites glisser l&apos;image et ajustez le zoom pour le médaillon rond.
+            <p className="mt-1 text-xs text-[#EAE6DE]/60">
+              Déplacez l’image et ajustez le zoom pour le médaillon.
             </p>
 
-            <div className="mt-5 flex justify-center">
+            <div className="mt-6 flex justify-center">
               <div
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
-                className="relative h-60 w-60 cursor-grab overflow-hidden rounded-full border-2 border-amber-400/70 bg-zinc-900 active:cursor-grabbing"
+                className="relative h-60 w-60 cursor-grab overflow-hidden rounded-full border border-[#C49A58] bg-[#101112] active:cursor-grabbing"
                 style={{ touchAction: "none" }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -958,13 +995,13 @@ export function ProfileView() {
               </div>
             </div>
 
-            <div className="mt-5 space-y-2">
-              <div className="flex items-center justify-between text-xs text-zinc-300">
-                <span className="inline-flex items-center gap-1.5">
-                  <ZoomIn size={14} className="text-amber-400" />
-                  Zoom
+            <div className="mt-6 space-y-2">
+              <div className="flex items-center justify-between text-xs text-[#EAE6DE]/75">
+                <span className="mc-kicker inline-flex items-center gap-1.5 text-[10px]">
+                  <ZoomIn size={13} className="text-[#C49A58]" />
+                  <span>Zoom</span>
                 </span>
-                <span>{Math.round(zoom * 100)} %</span>
+                <span className="mc-kicker text-[10px]">{Math.round(zoom * 100)} %</span>
               </div>
               <input
                 type="range"
@@ -973,17 +1010,17 @@ export function ProfileView() {
                 step={0.05}
                 value={zoom}
                 onChange={(e) => setZoom(parseFloat(e.target.value))}
-                className="w-full accent-amber-400"
+                className="w-full accent-[#C49A58]"
               />
             </div>
 
-            <div className="mt-6 flex justify-end gap-2.5">
+            <div className="mt-6 flex justify-end gap-3">
               <button type="button" onClick={closeCropper} className={ghostClass} disabled={busy}>
                 Annuler
               </button>
               <button type="button" onClick={() => void confirmCroppedAvatar()} className={buttonClass} disabled={busy}>
-                {busy ? <Loader2 size={16} className="animate-spin" /> : null}
-                Valider la photo
+                {busy ? <Loader2 size={15} className="animate-spin" /> : null}
+                <span>Valider</span>
               </button>
             </div>
           </div>

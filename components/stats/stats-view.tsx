@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { TitleDetailModal } from "@/components/title-detail-modal";
-import { ErrorNote, PageHeader, Poster, buttonClass, ghostClass } from "@/components/ui";
+import { ErrorNote, Poster, buttonClass, ghostClass } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { Title, WatchItem } from "@/lib/types";
 
@@ -123,7 +123,6 @@ export function StatsView() {
     void loadBaseStats();
   }, [loadBaseStats]);
 
-  // Enrichissement optionnel via TMDB pour genres, réalisateurs et acteurs récurrents sur les titres vus
   useEffect(() => {
     const watchedOnes = watchItems.filter((w) => w.status === "watched").slice(0, 14);
     const apiKey = process.env.NEXT_PUBLIC_TMDB_API_KEY;
@@ -173,7 +172,7 @@ export function StatsView() {
               (creditsJson.cast ?? []).slice(0, 4).forEach((actor) => {
                 const prev = actorMap.get(actor.name) ?? {
                   name: actor.name,
-                  roleLabel: "Acteur / Casting",
+                  roleLabel: "Interprète",
                   count: 0,
                   avgRatingSum: 0,
                   ratedCount: 0,
@@ -194,7 +193,7 @@ export function StatsView() {
               directors.slice(0, 2).forEach((dir) => {
                 const prev = directorMap.get(dir.name) ?? {
                   name: dir.name,
-                  roleLabel: dir.job === "Director" ? "Réalisateur" : "Création",
+                  roleLabel: dir.job === "Director" ? "Réalisation" : "Création",
                   count: 0,
                   avgRatingSum: 0,
                   ratedCount: 0,
@@ -210,7 +209,7 @@ export function StatsView() {
               });
             }
           } catch {
-            // ignore network error on individual item
+            // ignore
           }
         }),
       );
@@ -251,7 +250,6 @@ export function StatsView() {
     const moviesWatched = watched.filter((w) => w.media_type === "movie");
     const seriesWatched = watched.filter((w) => w.media_type === "tv");
 
-    // Estimation indicative du temps passé : ~110 min par film vu, ~220 min (~4-5 épisodes) par série/animé vu
     const estimatedMinutes = moviesWatched.length * 110 + seriesWatched.length * 220;
 
     const rated = watchItems.filter((w) => typeof w.rating === "number" && w.rating > 0);
@@ -291,158 +289,170 @@ export function StatsView() {
   const maxRatingBucket = Math.max(1, ...metrics.ratingBuckets.map((b) => b.count));
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <PageHeader
-          kicker="Rapport de saison · Scouting"
-          title="Statistiques"
-          text="Ton bilan de visionnage, le temps estimé, tes genres dominants et les têtes d'affiche de ta cinémathèque."
-        />
-        <div className="mb-6 flex gap-2">
-          <Link href="/listes" className={ghostClass}>
-            Mes listes
-          </Link>
-          <Link href="/decider" className={buttonClass}>
-            Lancer une session
-          </Link>
+    <div className="space-y-20">
+      {/* En-tête éditorial */}
+      <div className="border-b border-[#EAE6DE]/12 pb-10">
+        <p className="mc-kicker">VI — Carnet &amp; Repères</p>
+        <div className="mt-3 flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <h1 className="font-serif text-5xl leading-[0.98] tracking-tight text-[#EAE6DE] sm:text-6xl lg:text-7xl">
+            Chronique <span className="italic text-[#C49A58]">chiffrée</span>
+          </h1>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href="/listes" className={ghostClass}>
+              Collections
+            </Link>
+            <Link href="/decider" className={buttonClass}>
+              À la Une
+            </Link>
+          </div>
         </div>
       </div>
 
       <ErrorNote message={error} />
 
       {loading ? (
-        <div className="flex items-center gap-2 py-12 text-sm text-zinc-400">
-          <Loader2 size={16} className="animate-spin" />
-          Analyse de tes données de visionnage…
+        <div className="flex items-center gap-2.5 py-12 text-xs text-[#EAE6DE]/55">
+          <Loader2 size={15} className="animate-spin text-[#C49A58]" />
+          <span className="mc-kicker">Lecture des archives…</span>
         </div>
       ) : (
         <>
-          {/* Bandeau KPI style Football Manager */}
-          <section className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.015] p-4">
-              <div className="flex items-center justify-between text-xs text-zinc-400">
-                <span>Films vus</span>
-                <Film size={15} className="text-amber-300" />
+          {/* Repères majeurs en ligne éditoriale */}
+          <section className="editorial-enter grid gap-8 border-b border-[#EAE6DE]/12 pb-14 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="border-t border-[#EAE6DE]/20 pt-4">
+              <div className="flex items-center justify-between">
+                <span className="mc-kicker text-[10px]">Films vus</span>
+                <Film size={14} className="text-[#C49A58]" />
               </div>
-              <p className="mt-2 font-serif text-4xl text-[#f4f1ea]">{metrics.moviesWatchedCount}</p>
-              <p className="mt-1 text-xs text-zinc-400">{metrics.toWatchCount} encore en liste À voir</p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.015] p-4">
-              <div className="flex items-center justify-between text-xs text-zinc-400">
-                <span>Séries / Animés vus</span>
-                <Tv size={15} className="text-emerald-300" />
-              </div>
-              <p className="mt-2 font-serif text-4xl text-[#f4f1ea]">{metrics.seriesWatchedCount}</p>
-              <p className="mt-1 text-xs text-zinc-400">{metrics.watchedCount} titres marqués vus au total</p>
-            </div>
-
-            <div className="rounded-2xl border border-amber-300/25 bg-gradient-to-b from-amber-300/[0.07] to-white/[0.015] p-4">
-              <div className="flex items-center justify-between text-xs text-amber-200/90">
-                <span>Temps estimé</span>
-                <Clock size={15} className="text-amber-300" />
-              </div>
-              <p className="mt-2 font-serif text-4xl text-[#f4f1ea]">{formatDurationMinutes(metrics.estimatedMinutes)}</p>
-              <p className="mt-1 text-xs text-zinc-400">Estimation indicative (~1h50 / film, ~3h40 / série)</p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.015] p-4">
-              <div className="flex items-center justify-between text-xs text-zinc-400">
-                <span>Note moyenne</span>
-                <Star size={15} className="text-amber-300" />
-              </div>
-              <p className="mt-2 font-serif text-4xl text-[#f4f1ea]">
-                {metrics.avgRating}
-                {metrics.avgRating !== "—" ? <span className="text-xl text-zinc-400"> / 5</span> : null}
+              <p className="mt-2 font-serif text-5xl text-[#EAE6DE]">{metrics.moviesWatchedCount}</p>
+              <p className="mc-kicker mt-2 text-[10px] text-[#EAE6DE]/45">
+                {metrics.toWatchCount} dans À voir
               </p>
-              <p className="mt-1 text-xs text-zinc-400">
-                Sur {metrics.ratedCount} note{metrics.ratedCount > 1 ? "s" : ""} · {swipesCount} swipes · {matchesCount} matchs
+            </div>
+
+            <div className="border-t border-[#EAE6DE]/20 pt-4">
+              <div className="flex items-center justify-between">
+                <span className="mc-kicker text-[10px]">Séries &amp; animés vus</span>
+                <Tv size={14} className="text-[#A3B99B]" />
+              </div>
+              <p className="mt-2 font-serif text-5xl text-[#EAE6DE]">{metrics.seriesWatchedCount}</p>
+              <p className="mc-kicker mt-2 text-[10px] text-[#EAE6DE]/45">
+                {metrics.watchedCount} œuvres vues au total
+              </p>
+            </div>
+
+            <div className="border-t border-[#C49A58] pt-4">
+              <div className="flex items-center justify-between">
+                <span className="mc-kicker text-[10px] text-[#C49A58]">Temps estimé</span>
+                <Clock size={14} className="text-[#C49A58]" />
+              </div>
+              <p className="mt-2 font-serif text-5xl text-[#EAE6DE]">
+                {formatDurationMinutes(metrics.estimatedMinutes)}
+              </p>
+              <p className="mc-kicker mt-2 text-[10px] text-[#EAE6DE]/45">
+                Estimation indicative
+              </p>
+            </div>
+
+            <div className="border-t border-[#EAE6DE]/20 pt-4">
+              <div className="flex items-center justify-between">
+                <span className="mc-kicker text-[10px]">Appréciation moyenne</span>
+                <Star size={14} className="text-[#C49A58]" />
+              </div>
+              <p className="mt-2 font-serif text-5xl text-[#EAE6DE]">
+                {metrics.avgRating}
+                {metrics.avgRating !== "—" ? <span className="text-2xl italic text-[#EAE6DE]/50"> / 5</span> : null}
+              </p>
+              <p className="mc-kicker mt-2 text-[10px] text-[#EAE6DE]/45">
+                {metrics.ratedCount} note{metrics.ratedCount > 1 ? "s" : ""} · {swipesCount} choix · {matchesCount} accords
               </p>
             </div>
           </section>
 
-          {/* Graphiques : Répartition formats + Genres préférés + Distribution des notes */}
-          <section className="grid gap-6 lg:grid-cols-3">
-            {/* Graphique SVG : Répartition Films vs Séries */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-              <div className="flex items-center justify-between">
-                <h2 className="font-serif text-xl text-[#f4f1ea]">Répartition des formats</h2>
-                <Clapperboard size={16} className="text-zinc-400" />
+          {/* Répartition des formats · Genres · Courbe des notes */}
+          <section className="grid gap-12 border-b border-[#EAE6DE]/12 pb-16 lg:grid-cols-3">
+            <div className="space-y-5">
+              <div className="flex items-baseline justify-between border-b border-[#EAE6DE]/10 pb-3">
+                <h2 className="font-serif text-2xl text-[#EAE6DE]">Formats</h2>
+                <Clapperboard size={14} className="text-[#EAE6DE]/45" />
               </div>
-              <p className="mt-1 text-xs text-zinc-400">Part des titres vus par type d&apos;œuvre.</p>
+              <p className="text-xs text-[#EAE6DE]/55">Part des œuvres vues selon leur nature.</p>
 
               {metrics.watchedCount > 0 ? (
-                <div className="mt-5 flex items-center gap-5">
+                <div className="flex items-center gap-6 pt-2">
                   <svg viewBox="0 0 120 120" className="h-28 w-28 shrink-0 -rotate-90">
                     <circle
                       cx="60"
                       cy="60"
                       r="44"
                       fill="none"
-                      stroke="rgba(255,255,255,0.08)"
-                      strokeWidth="14"
+                      stroke="rgba(234, 230, 222, 0.1)"
+                      strokeWidth="12"
                     />
                     <circle
                       cx="60"
                       cy="60"
                       r="44"
                       fill="none"
-                      stroke="#fbbf24"
-                      strokeWidth="14"
+                      stroke="#C49A58"
+                      strokeWidth="12"
                       strokeDasharray={`${(metrics.moviesWatchedCount / metrics.watchedCount) * 276.46} 276.46`}
                     />
                   </svg>
-                  <div className="flex-1 space-y-2.5 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center gap-2 text-zinc-200">
-                        <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                  <div className="flex-1 space-y-3 text-xs">
+                    <div className="flex items-center justify-between border-b border-[#EAE6DE]/10 pb-2">
+                      <span className="inline-flex items-center gap-2 text-[#EAE6DE]">
+                        <span className="h-2 w-2 rounded-full bg-[#C49A58]" />
                         Films
                       </span>
-                      <span className="font-semibold text-[#f4f1ea]">
-                        {metrics.moviesWatchedCount} (
-                        {Math.round((metrics.moviesWatchedCount / metrics.watchedCount) * 100)} %)
+                      <span className="font-serif text-lg text-[#EAE6DE]">
+                        {metrics.moviesWatchedCount}{" "}
+                        <span className="mc-kicker text-[9px] text-[#EAE6DE]/50">
+                          ({Math.round((metrics.moviesWatchedCount / metrics.watchedCount) * 100)}%)
+                        </span>
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center gap-2 text-zinc-200">
-                        <span className="h-2.5 w-2.5 rounded-full bg-zinc-600" />
+                      <span className="inline-flex items-center gap-2 text-[#EAE6DE]">
+                        <span className="h-2 w-2 rounded-full bg-[#A3B99B]" />
                         Séries / Animés
                       </span>
-                      <span className="font-semibold text-[#f4f1ea]">
-                        {metrics.seriesWatchedCount} (
-                        {Math.round((metrics.seriesWatchedCount / metrics.watchedCount) * 100)} %)
+                      <span className="font-serif text-lg text-[#EAE6DE]">
+                        {metrics.seriesWatchedCount}{" "}
+                        <span className="mc-kicker text-[9px] text-[#EAE6DE]/50">
+                          ({Math.round((metrics.seriesWatchedCount / metrics.watchedCount) * 100)}%)
+                        </span>
                       </span>
                     </div>
                   </div>
                 </div>
               ) : (
-                <p className="mt-6 rounded-xl border border-dashed border-white/10 py-8 text-center text-xs text-zinc-500">
-                  Marque des titres comme « Vus » pour voir la répartition.
+                <p className="border-y border-[#EAE6DE]/10 py-8 text-center font-serif text-lg italic text-[#EAE6DE]/45">
+                  Marquez des œuvres comme vues pour révéler la répartition.
                 </p>
               )}
             </div>
 
-            {/* Graphique : Genres préférés */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-              <div className="flex items-center justify-between">
-                <h2 className="font-serif text-xl text-[#f4f1ea]">Genres dominants</h2>
-                <Flame size={16} className="text-amber-300" />
+            <div className="space-y-5">
+              <div className="flex items-baseline justify-between border-b border-[#EAE6DE]/10 pb-3">
+                <h2 className="font-serif text-2xl text-[#EAE6DE]">Genres dominants</h2>
+                <Flame size={14} className="text-[#C49A58]" />
               </div>
-              <p className="mt-1 text-xs text-zinc-400">
-                {scoutingLoading ? "Lecture des genres sur tes titres vus…" : "Tes familles d'histoires les plus vues."}
+              <p className="text-xs text-[#EAE6DE]/55">
+                {scoutingLoading ? "Lecture des genres…" : "Registres les plus présents dans vos visionnages."}
               </p>
 
               {genreStats.length > 0 ? (
-                <div className="mt-4 space-y-3">
+                <div className="space-y-4 pt-1">
                   {genreStats.map((g) => (
-                    <div key={g.id} className="space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-zinc-200">{g.name}</span>
-                        <span className="font-medium text-amber-200">{g.count}</span>
+                    <div key={g.id} className="space-y-1.5">
+                      <div className="flex items-baseline justify-between text-xs">
+                        <span className="font-serif text-lg text-[#EAE6DE]">{g.name}</span>
+                        <span className="mc-kicker text-[10px] text-[#C49A58]">{g.count}</span>
                       </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-black/40">
+                      <div className="h-px w-full bg-[#EAE6DE]/12">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400"
+                          className="h-px bg-[#C49A58]"
                           style={{ width: `${Math.round((g.count / maxGenreCount) * 100)}%` }}
                         />
                       </div>
@@ -450,35 +460,32 @@ export function StatsView() {
                   ))}
                 </div>
               ) : (
-                <p className="mt-6 rounded-xl border border-dashed border-white/10 py-8 text-center text-xs text-zinc-500">
-                  {scoutingLoading
-                    ? "Chargement des genres…"
-                    : "Ajoute des titres vus (ou configure la clé TMDB) pour afficher tes genres."}
+                <p className="border-y border-[#EAE6DE]/10 py-8 text-center font-serif text-lg italic text-[#EAE6DE]/45">
+                  {scoutingLoading ? "Analyse en cours…" : "Aucun genre répertorié pour l’instant."}
                 </p>
               )}
             </div>
 
-            {/* Graphique : Répartition des notes */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-              <div className="flex items-center justify-between">
-                <h2 className="font-serif text-xl text-[#f4f1ea]">Courbe de notes</h2>
-                <TrendingUp size={16} className="text-emerald-300" />
+            <div className="space-y-5">
+              <div className="flex items-baseline justify-between border-b border-[#EAE6DE]/10 pb-3">
+                <h2 className="font-serif text-2xl text-[#EAE6DE]">Courbe des notes</h2>
+                <TrendingUp size={14} className="text-[#A3B99B]" />
               </div>
-              <p className="mt-1 text-xs text-zinc-400">Distribution de tes étoiles (1 à 5).</p>
+              <p className="text-xs text-[#EAE6DE]/55">Répartition de vos étoiles (1 à 5).</p>
 
-              <div className="mt-5 flex h-32 items-end justify-between gap-2 px-2">
+              <div className="flex h-36 items-end justify-between gap-3 pt-4">
                 {metrics.ratingBuckets.map((b) => {
                   const heightPct = Math.max(8, Math.round((b.count / maxRatingBucket) * 100));
                   return (
-                    <div key={b.star} className="flex flex-1 flex-col items-center gap-1.5">
-                      <span className="text-[11px] font-semibold text-zinc-300">{b.count}</span>
-                      <div className="flex h-20 w-full items-end rounded-lg bg-black/35 p-1">
+                    <div key={b.star} className="flex flex-1 flex-col items-center gap-2">
+                      <span className="font-serif text-base text-[#EAE6DE]">{b.count}</span>
+                      <div className="flex h-20 w-full items-end border-b border-[#EAE6DE]/20 px-1">
                         <div
-                          className="w-full rounded-md bg-amber-300/85 transition-all"
+                          className="w-full bg-[#A3B99B]/80 transition-all"
                           style={{ height: `${heightPct}%` }}
                         />
                       </div>
-                      <span className="text-[11px] text-zinc-400">{b.star}★</span>
+                      <span className="mc-kicker text-[10px] text-[#EAE6DE]/50">{b.star}★</span>
                     </div>
                   );
                 })}
@@ -486,100 +493,94 @@ export function StatsView() {
             </div>
           </section>
 
-          {/* Rapport de scouting : Réalisateurs & Acteurs récurrents */}
-          <section className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-              <div className="flex items-center justify-between">
+          {/* Réalisateurs & Interprètes récurrents */}
+          <section className="grid gap-14 border-b border-[#EAE6DE]/12 pb-16 lg:grid-cols-2">
+            <div className="space-y-6">
+              <div className="flex items-baseline justify-between border-b border-[#EAE6DE]/10 pb-4">
                 <div>
-                  <h2 className="font-serif text-2xl text-[#f4f1ea]">Réalisateurs / Créateurs les plus vus</h2>
-                  <p className="text-xs text-zinc-400">Ceux qui reviennent le plus souvent dans tes séances vues.</p>
+                  <p className="mc-kicker text-[10px] text-[#C49A58]">Mise en scène</p>
+                  <h2 className="mt-1 font-serif text-3xl text-[#EAE6DE]">Réalisateurs récurrents</h2>
                 </div>
-                <Award size={18} className="text-amber-300" />
+                <Award size={16} className="text-[#C49A58]" />
               </div>
 
               {topDirectors.length > 0 ? (
-                <div className="mt-4 space-y-2.5">
+                <div className="divide-y divide-[#EAE6DE]/10">
                   {topDirectors.map((dir, i) => (
-                    <div
-                      key={dir.name}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/25 p-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-xs font-bold text-amber-300">#{i + 1}</span>
+                    <div key={dir.name} className="flex items-center justify-between gap-4 py-4">
+                      <div className="flex items-center gap-4">
+                        <span className="font-serif text-lg italic text-[#C49A58]">0{i + 1}</span>
                         {dir.samplePoster ? (
-                          <div className="h-11 w-8 overflow-hidden rounded-md border border-white/10">
+                          <div className="aspect-[2/3] w-10 overflow-hidden bg-[#202224]">
                             <Poster path={dir.samplePoster} alt={dir.name} className="h-full w-full" />
                           </div>
                         ) : null}
                         <div>
-                          <p className="text-sm font-semibold text-[#f4f1ea]">{dir.name}</p>
-                          <p className="text-[11px] text-zinc-400">{dir.roleLabel}</p>
+                          <p className="font-serif text-2xl text-[#EAE6DE]">{dir.name}</p>
+                          <p className="mc-kicker text-[9px] text-[#EAE6DE]/45">{dir.roleLabel}</p>
                         </div>
                       </div>
-                      <span className="rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-zinc-200">
+                      <span className="mc-kicker text-[10px] text-[#EAE6DE]/75">
                         {dir.count} titre{dir.count > 1 ? "s" : ""}
                       </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="mt-4 rounded-xl border border-dashed border-white/10 py-8 text-center text-xs text-zinc-500">
-                  {scoutingLoading ? "Analyse du générique…" : "Pas encore assez de titres vus pour dégager un réalisateur."}
+                <p className="border-y border-[#EAE6DE]/10 py-8 text-center font-serif text-lg italic text-[#EAE6DE]/45">
+                  {scoutingLoading ? "Lecture du générique…" : "Pas encore assez de titres vus."}
                 </p>
               )}
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-              <div className="flex items-center justify-between">
+            <div className="space-y-6">
+              <div className="flex items-baseline justify-between border-b border-[#EAE6DE]/10 pb-4">
                 <div>
-                  <h2 className="font-serif text-2xl text-[#f4f1ea]">Acteurs / Visages récurrents</h2>
-                  <p className="text-xs text-zinc-400">Têtes d&apos;affiche les plus présentes sur ton écran.</p>
+                  <p className="mc-kicker text-[10px] text-[#A3B99B]">Distribution</p>
+                  <h2 className="mt-1 font-serif text-3xl text-[#EAE6DE]">Interprètes en vue</h2>
                 </div>
-                <UserCheck size={18} className="text-emerald-300" />
+                <UserCheck size={16} className="text-[#A3B99B]" />
               </div>
 
               {topActors.length > 0 ? (
-                <div className="mt-4 space-y-2.5">
+                <div className="divide-y divide-[#EAE6DE]/10">
                   {topActors.map((act, i) => (
-                    <div
-                      key={act.name}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/25 p-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-xs font-bold text-emerald-300">#{i + 1}</span>
+                    <div key={act.name} className="flex items-center justify-between gap-4 py-4">
+                      <div className="flex items-center gap-4">
+                        <span className="font-serif text-lg italic text-[#A3B99B]">0{i + 1}</span>
                         {act.samplePoster ? (
-                          <div className="h-11 w-8 overflow-hidden rounded-md border border-white/10">
+                          <div className="aspect-[2/3] w-10 overflow-hidden bg-[#202224]">
                             <Poster path={act.samplePoster} alt={act.name} className="h-full w-full" />
                           </div>
                         ) : null}
                         <div>
-                          <p className="text-sm font-semibold text-[#f4f1ea]">{act.name}</p>
-                          <p className="text-[11px] text-zinc-400">{act.roleLabel}</p>
+                          <p className="font-serif text-2xl text-[#EAE6DE]">{act.name}</p>
+                          <p className="mc-kicker text-[9px] text-[#EAE6DE]/45">{act.roleLabel}</p>
                         </div>
                       </div>
-                      <span className="rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-zinc-200">
+                      <span className="mc-kicker text-[10px] text-[#EAE6DE]/75">
                         {act.count} titre{act.count > 1 ? "s" : ""}
                       </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="mt-4 rounded-xl border border-dashed border-white/10 py-8 text-center text-xs text-zinc-500">
-                  {scoutingLoading ? "Analyse du casting…" : "Pas encore assez de titres vus pour dégager un acteur."}
+                <p className="border-y border-[#EAE6DE]/10 py-8 text-center font-serif text-lg italic text-[#EAE6DE]/45">
+                  {scoutingLoading ? "Lecture du casting…" : "Pas encore assez de titres vus."}
                 </p>
               )}
             </div>
           </section>
 
-          {/* Séries favorites & titres les mieux notés */}
-          <section className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-              <div className="flex items-center justify-between">
-                <h2 className="font-serif text-2xl text-[#f4f1ea]">Séries / Animés en tête</h2>
-                <Sparkles size={16} className="text-amber-300" />
+          {/* Séries en tête & Palmarès des notes */}
+          <section className="grid gap-14 lg:grid-cols-2">
+            <div className="space-y-6">
+              <div className="flex items-baseline justify-between border-b border-[#EAE6DE]/10 pb-4">
+                <h2 className="font-serif text-3xl text-[#EAE6DE]">Séries &amp; animés en tête</h2>
+                <Sparkles size={15} className="text-[#C49A58]" />
               </div>
               {metrics.favoriteSeries.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
                   {metrics.favoriteSeries.map((s) => (
                     <button
                       key={s.id}
@@ -598,32 +599,38 @@ export function StatsView() {
                           popularity: 0,
                         })
                       }
-                      className="group overflow-hidden rounded-xl border border-white/10 bg-zinc-950 text-left transition hover:border-amber-300/40"
+                      className="group text-left focus:outline-none"
                     >
-                      <div className="aspect-[2/3] w-full overflow-hidden">
-                        <Poster path={s.poster_path} alt={s.title} className="h-full w-full" />
+                      <div className="aspect-[2/3] w-full overflow-hidden bg-[#202224]">
+                        <Poster
+                          path={s.poster_path}
+                          alt={s.title}
+                          className="h-full w-full transition-transform duration-700 ease-out group-hover:scale-105"
+                        />
                       </div>
-                      <p className="truncate px-2 py-1.5 font-serif text-xs text-[#f4f1ea]">{s.title}</p>
+                      <p className="mt-2.5 truncate font-serif text-lg text-[#EAE6DE] group-hover:text-[#C49A58]">
+                        {s.title}
+                      </p>
                       {s.rating ? (
-                        <p className="px-2 pb-2 text-[10px] font-semibold text-amber-300">{s.rating} ★</p>
+                        <p className="mc-kicker mt-0.5 text-[9px] text-[#C49A58]">{s.rating} / 5</p>
                       ) : null}
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="mt-4 rounded-xl border border-dashed border-white/10 py-8 text-center text-xs text-zinc-500">
-                  Aucune série marquée comme vue pour le moment.
+                <p className="border-y border-[#EAE6DE]/10 py-8 text-center font-serif text-lg italic text-[#EAE6DE]/45">
+                  Aucune série marquée comme vue pour l’instant.
                 </p>
               )}
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-              <div className="flex items-center justify-between">
-                <h2 className="font-serif text-2xl text-[#f4f1ea]">Meilleures notes de ta fiche</h2>
-                <Activity size={16} className="text-emerald-300" />
+            <div className="space-y-6">
+              <div className="flex items-baseline justify-between border-b border-[#EAE6DE]/10 pb-4">
+                <h2 className="font-serif text-3xl text-[#EAE6DE]">Meilleures notes</h2>
+                <Activity size={15} className="text-[#A3B99B]" />
               </div>
               {metrics.bestRatedTitles.length > 0 ? (
-                <div className="mt-4 space-y-2.5">
+                <div className="divide-y divide-[#EAE6DE]/10 border-b border-[#EAE6DE]/10">
                   {metrics.bestRatedTitles.map((item) => (
                     <button
                       key={item.id}
@@ -642,29 +649,27 @@ export function StatsView() {
                           popularity: 0,
                         })
                       }
-                      className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/25 p-2.5 text-left transition hover:border-white/25"
+                      className="flex w-full items-center justify-between gap-4 py-3.5 text-left transition hover:opacity-85"
                     >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="h-11 w-8 shrink-0 overflow-hidden rounded-md border border-white/10">
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="aspect-[2/3] w-10 shrink-0 overflow-hidden bg-[#202224]">
                           <Poster path={item.poster_path} alt={item.title} className="h-full w-full" />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate font-serif text-base text-[#f4f1ea]">{item.title}</p>
-                          <p className="text-[11px] text-zinc-400">
+                          <p className="truncate font-serif text-xl text-[#EAE6DE]">{item.title}</p>
+                          <p className="mc-kicker text-[9px] text-[#EAE6DE]/45">
                             {item.media_type === "movie" ? "Film" : "Série"}
                             {item.year ? ` · ${item.year}` : ""}
                           </p>
                         </div>
                       </div>
-                      <span className="shrink-0 rounded-lg bg-amber-300/15 px-2.5 py-1 text-xs font-bold text-amber-200">
-                        {item.rating} ★
-                      </span>
+                      <span className="mc-kicker shrink-0 text-[10px] text-[#C49A58]">{item.rating} / 5</span>
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="mt-4 rounded-xl border border-dashed border-white/10 py-8 text-center text-xs text-zinc-500">
-                  Note des films ou séries dans tes listes pour bâtir ton palmarès.
+                <p className="border-y border-[#EAE6DE]/10 py-8 text-center font-serif text-lg italic text-[#EAE6DE]/45">
+                  Notez des œuvres dans vos collections pour bâtir votre palmarès.
                 </p>
               )}
             </div>
