@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/types";
@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (active) setLoading(false);
     }
 
-    boot();
+    void boot();
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
@@ -109,8 +109,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
+export function useAuth(): AuthValue {
   const value = useContext(AuthContext);
-  if (!value) throw new Error("useAuth doit être utilisé dans AuthProvider.");
-  return value;
+  const [fallbackUser, setFallbackUser] = useState<User | null>(null);
+  const [fallbackProfile, setFallbackProfile] = useState<Profile | null>(null);
+  const [fallbackLoading, setFallbackLoading] = useState(true);
+
+  useEffect(() => {
+    if (value) return;
+    let active = true;
+
+    void supabase.auth.getSession().then(async ({ data }) => {
+      if (!active) return;
+      const u = data.session?.user ?? null;
+      setFallbackUser(u);
+      if (u) {
+        setFallbackProfile(await loadProfile(u.id));
+      }
+      if (active) setFallbackLoading(false);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      if (!active) return;
+      const u = next?.user ?? null;
+      setFallbackUser(u);
+      if (!u) {
+        setFallbackProfile(null);
+        setFallbackLoading(false);
+        return;
+      }
+      void loadProfile(u.id).then((p) => {
+        if (active) {
+          setFallbackProfile(p);
+          setFallbackLoading(false);
+        }
+      });
+    });
+
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [value]);
+
+  const refreshFallback = useCallback(async () => {
+    if (!fallbackUser) return;
+    setFallbackProfile(await loadProfile(fallbackUser.id));
+  }, [fallbackUser]);
+
+  const signOutFallback = useCallback(async () => {
+    await supabase.auth.signOut();
+    setFallbackUser(null);
+    setFallbackProfile(null);
+  }, []);
+
+  if (value) return value;
+
+  return {
+    user: fallbackUser,
+    profile: fallbackProfile,
+    loading: fallbackLoading,
+    refreshProfile: refreshFallback,
+    signOut: signOutFallback,
+  };
 }

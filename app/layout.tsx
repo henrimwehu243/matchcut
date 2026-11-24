@@ -1,45 +1,34 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Inter } from "next/font/google";
+import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "@/components/auth-provider";
 import "./globals.css";
 
-const serif = Cormorant_Garamond({
+const fraunces = Fraunces({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-serif",
+  variable: "--font-fraunces",
+  display: "swap",
 });
 
-const sans = Inter({
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-sans",
+  variable: "--font-plus-jakarta",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "MatchCut",
-  description: "Soirées ciné, séries et animés entre amis.",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "MatchCut",
-  },
+  description: "Choisissez vos films, séries et séances ensemble.",
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
   themeColor: "#09090b",
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${serif.variable} ${sans.variable}`}>
-      <body className="bg-[#09090b] font-sans text-[#f4f1ea] antialiased">
+    <html lang="fr" className={`${fraunces.variable} ${plusJakartaSans.variable}`}>
+      <body className="min-h-screen bg-[var(--mc-bg,#09090b)] font-sans text-[#f4f1ea] antialiased selection:bg-amber-400/30 selection:text-amber-100">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

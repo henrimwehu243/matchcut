@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { RotateCcw, Search, Shuffle } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { TitleDetailModal } from "@/components/title-detail-modal";
 import { ErrorNote, Modal, PageHeader, Poster, buttonClass, ghostClass, inputClass } from "@/components/ui";
@@ -9,15 +10,28 @@ import { supabase } from "@/lib/supabase";
 import type { Group, Profile, Title } from "@/lib/types";
 
 type Format = "all" | "movie" | "tv" | "anime";
-type SortBy = "popularity" | "rating_desc" | "alpha_asc" | "alpha_desc" | "year_desc" | "year_asc" | "short_first";
+type SortBy = "shuffle" | "popularity" | "rating_desc" | "alpha_asc" | "alpha_desc" | "year_desc" | "year_asc" | "short_first";
+
+function seededScore(seed: number, key: string) {
+  let hash = seed * 2654435761;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = Math.imul(hash ^ key.charCodeAt(i), 2246822519);
+  }
+  return (hash >>> 0) / 4294967295;
+}
 
 export function CatalogueView() {
   const { user } = useAuth();
   const [query, setQuery] = useState("");
+  const [shuffleSeed, setShuffleSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000) + 1);
+
   const [format, setFormat] = useState<Format>("all");
   const [genre, setGenre] = useState<number | null>(null);
   const [decade, setDecade] = useState("all");
-  const [sortBy, setSortBy] = useState<SortBy>("popularity");
+  const [sortBy, setSortBy] = useState<SortBy>("shuffle");
+  const [hideInLists, setHideInLists] = useState(false);
+  const [existingKeys, setExistingKeys] = useState<Set<string>>(new Set());
+  const [tastePrefs, setTastePrefs] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [results, setResults] = useState<Title[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,12 +42,37 @@ export function CatalogueView() {
   const [selectedTitle, setSelectedTitle] = useState<Title | null>(null);
 
   useEffect(() => {
+    if (!user || typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(`matchcut_taste_prefs_${user.id}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setTastePrefs(parsed.map((item) => String(item).toLowerCase()));
+        }
+      }
+    } catch {
+      // ignore malformed local storage
+    }
+
+    void (async () => {
+      const { data } = await supabase
+        .from("watch_items")
+        .select("tmdb_id, media_type")
+        .eq("user_id", user.id);
+      if (data) {
+        setExistingKeys(new Set(data.map((row) => `${row.media_type}:${row.tmdb_id}`)));
+      }
+    })();
+  }, [user]);
+
+  useEffect(() => {
     const handle = window.setTimeout(() => {
       void search(1, true);
     }, 280);
     return () => window.clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, format, genre, decade, sortBy]);
+  }, [query, format, genre, decade, sortBy, shuffleSeed]);
 
   const formats: { id: Format; label: string }[] = [
     { id: "all", label: "Tout" },
@@ -41,6 +80,30 @@ export function CatalogueView() {
     { id: "tv", label: "Séries" },
     { id: "anime", label: "Animés" },
   ];
+
+  const hasActiveFilters =
+    query.trim().length > 0 ||
+    format !== "all" ||
+    genre !== null ||
+    decade !== "all" ||
+    sortBy !== "shuffle" ||
+    hideInLists;
+
+  function resetFilters() {
+    setQuery("");
+    setFormat("all");
+    setGenre(null);
+    setDecade("all");
+    setSortBy("shuffle");
+    setHideInLists(false);
+    setNotice(null);
+    setShuffleSeed(Math.floor(Math.random() * 1_000_000) + 1);
+  }
+
+  function triggerFreshShuffle() {
+    setSortBy("shuffle");
+    setShuffleSeed(Math.floor(Math.random() * 1_000_000) + 1);
+  }
 
   async function search(nextPage: number, replace: boolean) {
     setLoading(true);
@@ -56,10 +119,16 @@ export function CatalogueView() {
           ? "primary_release_date.asc"
           : "popularity.desc";
 
-      const base: Record<string, string> = { page: String(nextPage), sort_by: tmdbSort };
+      const effectivePage =
+        replace && sortBy === "shuffle" && !query.trim() && nextPage === 1
+          ? ((shuffleSeed % 4) + 1)
+          : nextPage;
+
+      const base: Record<string, string> = { page: String(effectivePage), sort_by: tmdbSort };
       if (sortBy === "rating_desc") base["vote_count.gte"] = "250";
       if (genreIds.length) base.with_genres = genreIds.join(",");
       if (format === "anime") base.with_original_language = "ja";
+
       const term = query.trim();
       let raw: Awaited<ReturnType<typeof tmdb>> = [];
 
@@ -115,8 +184,15 @@ export function CatalogueView() {
     }
   }
 
-  const sortedResults = useMemo(() => {
-    const copy = [...results];
+  const filteredAndSortedResults = useMemo(() => {
+    const filtered = hideInLists
+      ? results.filter((item) => {
+          const key = `${item.mediaType}:${item.tmdbId}`;
+          return !existingKeys.has(key) && !saved.has(key);
+        })
+      : results;
+
+    const copy = [...filtered];
     switch (sortBy) {
       case "rating_desc":
         return copy.sort((a, b) => (b.voteAverage ?? 0) - (a.voteAverage ?? 0));
@@ -130,10 +206,26 @@ export function CatalogueView() {
         return copy.sort((a, b) => Number(a.year || 9999) - Number(b.year || 9999));
       case "short_first":
         return copy.sort((a, b) => (a.mediaType === b.mediaType ? 0 : a.mediaType === "movie" ? -1 : 1));
-      default:
+      case "popularity":
         return copy.sort((a, b) => b.popularity - a.popularity);
+      case "shuffle":
+      default: {
+        return copy.sort((a, b) => {
+          const keyA = `${a.mediaType}:${a.tmdbId}`;
+          const keyB = `${b.mediaType}:${b.tmdbId}`;
+          let scoreA = seededScore(shuffleSeed, keyA);
+          let scoreB = seededScore(shuffleSeed, keyB);
+          if (tastePrefs.length > 0 && !query.trim() && genre === null) {
+            const hayA = `${a.title.toLowerCase()} ${genreLabels(a.genreIds).join(" ").toLowerCase()}`;
+            const hayB = `${b.title.toLowerCase()} ${genreLabels(b.genreIds).join(" ").toLowerCase()}`;
+            if (tastePrefs.some((pref) => hayA.includes(pref.split(" (")[0]))) scoreA += 0.25;
+            if (tastePrefs.some((pref) => hayB.includes(pref.split(" (")[0]))) scoreB += 0.25;
+          }
+          return scoreB - scoreA;
+        });
+      }
     }
-  }, [results, sortBy]);
+  }, [results, hideInLists, existingKeys, saved, sortBy, shuffleSeed, tastePrefs, query, genre]);
 
   async function addToList(title: Title) {
     if (!user) return;
@@ -156,37 +248,56 @@ export function CatalogueView() {
       return;
     }
     setSaved((prev) => new Set(prev).add(key));
+    setExistingKeys((prev) => new Set(prev).add(key));
     setNotice(`${title.title} a été ajouté à votre liste.`);
   }
 
   return (
     <div>
-      <PageHeader
-        kicker="Recherche"
-        title="Catalogue"
-        text="Cliquez sur un film, une série ou un animé pour voir sa durée, son réalisateur, son casting et les avis de vos amis."
-      />
-      <div className="space-y-4">
-        <input
-          className={inputClass}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Rechercher un titre"
-          aria-label="Rechercher un titre"
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <PageHeader
+          kicker="Recherche"
+          title="Catalogue"
+          text="Cliquez sur un film, une série ou un animé pour voir sa durée, son réalisateur, son casting et les avis de vos amis."
         />
-        <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={triggerFreshShuffle}
+          className="mb-6 inline-flex items-center gap-2 rounded-2xl border border-amber-300/35 bg-amber-300/10 px-4 py-2 text-xs font-semibold text-amber-200 transition hover:border-amber-300/60"
+        >
+          <Shuffle size={14} />
+          Mélanger la sélection
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <div className="relative">
+          <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <input
+            className={`${inputClass} pl-10`}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Rechercher un titre"
+            aria-label="Rechercher un titre"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           {formats.map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => setFormat(item.id)}
-              className={`px-3 py-1.5 text-sm ${format === item.id ? "bg-[#f4f1ea] text-[#09090b]" : "border border-white/15 text-zinc-300"}`}
+              className={`rounded-xl px-3.5 py-1.5 text-sm transition ${
+                format === item.id
+                  ? "bg-[#f4f1ea] font-medium text-[#09090b]"
+                  : "border border-white/15 text-zinc-300 hover:border-white/30"
+              }`}
             >
               {item.label}
             </button>
           ))}
           <select
-            className="border border-white/15 bg-[#09090b] px-3 py-1.5 text-sm"
+            className="rounded-xl border border-white/15 bg-[#09090b] px-3 py-1.5 text-sm text-zinc-200"
             value={decade}
             onChange={(event) => setDecade(event.target.value)}
             aria-label="Décennie"
@@ -199,11 +310,12 @@ export function CatalogueView() {
             ))}
           </select>
           <select
-            className="border border-white/15 bg-[#09090b] px-3 py-1.5 text-sm text-zinc-200"
+            className="rounded-xl border border-white/15 bg-[#09090b] px-3 py-1.5 text-sm text-zinc-200"
             value={sortBy}
             onChange={(event) => setSortBy(event.target.value as SortBy)}
             aria-label="Trier par"
           >
+            <option value="shuffle">Trier : Aléatoire</option>
             <option value="popularity">Trier : Popularité</option>
             <option value="rating_desc">Trier : Mieux notés</option>
             <option value="alpha_asc">Trier : Alphabétique (A → Z)</option>
@@ -212,12 +324,33 @@ export function CatalogueView() {
             <option value="year_asc">Trier : Plus anciens</option>
             <option value="short_first">Trier : Films courts avant séries</option>
           </select>
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/12 bg-white/[0.02] px-3 py-1.5 text-xs text-zinc-300 hover:border-white/25">
+            <input
+              type="checkbox"
+              checked={hideInLists}
+              onChange={(event) => setHideInLists(event.target.checked)}
+              className="accent-amber-400"
+            />
+            Masquer ceux déjà dans mes listes
+          </label>
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className={`${ghostClass} inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs`}
+            >
+              <RotateCcw size={13} />
+              Réinitialiser
+            </button>
+          ) : null}
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
           <button
             type="button"
             onClick={() => setGenre(null)}
-            className={`shrink-0 px-3 py-1.5 text-sm ${genre === null ? "bg-white/10 text-white" : "text-zinc-500"}`}
+            className={`shrink-0 rounded-xl px-3 py-1.5 text-sm transition ${
+              genre === null ? "bg-white/12 font-medium text-white" : "text-zinc-500 hover:text-zinc-300"
+            }`}
           >
             Tous les genres
           </button>
@@ -226,7 +359,9 @@ export function CatalogueView() {
               key={item.id}
               type="button"
               onClick={() => setGenre(item.id === genre ? null : item.id)}
-              className={`shrink-0 px-3 py-1.5 text-sm ${genre === item.id ? "bg-white/10 text-white" : "text-zinc-500"}`}
+              className={`shrink-0 rounded-xl px-3 py-1.5 text-sm transition ${
+                genre === item.id ? "bg-white/12 font-medium text-white" : "text-zinc-500 hover:text-zinc-300"
+              }`}
             >
               {item.label}
             </button>
@@ -234,14 +369,23 @@ export function CatalogueView() {
         </div>
       </div>
 
-      <div className="mt-4 space-y-3">
-        <ErrorNote message={error} />
-        {notice ? <p className="text-sm text-zinc-400">{notice}</p> : null}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
+        <div className="space-y-2">
+          <ErrorNote message={error} />
+          {notice ? <p className="text-sm text-emerald-400">{notice}</p> : null}
+        </div>
+        {!loading && filteredAndSortedResults.length > 0 ? (
+          <span>
+            {filteredAndSortedResults.length} titre{filteredAndSortedResults.length > 1 ? "s" : ""} affiché
+            {filteredAndSortedResults.length > 1 ? "s" : ""}
+          </span>
+        ) : null}
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {sortedResults.map((title) => {
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        {filteredAndSortedResults.map((title) => {
           const key = `${title.mediaType}:${title.tmdbId}`;
+          const isSaved = saved.has(key) || existingKeys.has(key);
           return (
             <article key={key} className="flex flex-col">
               <button
@@ -249,10 +393,10 @@ export function CatalogueView() {
                 onClick={() => setSelectedTitle(title)}
                 className="group text-left focus:outline-none"
               >
-                <div className="relative aspect-[2/3] overflow-hidden border border-white/10 bg-zinc-950 transition group-hover:border-white/40">
+                <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/10 bg-zinc-950 transition group-hover:border-white/40">
                   <Poster path={title.posterPath} alt={title.title} className="h-full w-full transition duration-300 group-hover:scale-105" />
                   {title.voteAverage && title.voteAverage > 0 ? (
-                    <span className="absolute right-2 top-2 bg-black/80 px-1.5 py-0.5 text-[11px] font-medium text-[#f4f1ea]">
+                    <span className="absolute right-2 top-2 rounded-md bg-black/80 px-1.5 py-0.5 text-[11px] font-medium text-[#f4f1ea]">
                       ★ {title.voteAverage.toFixed(1)}
                     </span>
                   ) : null}
@@ -265,8 +409,8 @@ export function CatalogueView() {
               </p>
               <p className="mt-1 text-xs text-zinc-500">{genreLabels(title.genreIds).join(" · ")}</p>
               <div className="mt-3 flex gap-2">
-                <button type="button" className={`${ghostClass} flex-1 px-2 py-2 text-xs`} onClick={() => addToList(title)}>
-                  {saved.has(key) ? "Dans la liste" : "Ajouter"}
+                <button type="button" className={`${ghostClass} flex-1 px-2 py-2 text-xs`} onClick={() => void addToList(title)}>
+                  {isSaved ? "Dans la liste" : "Ajouter"}
                 </button>
                 <button type="button" className={`${ghostClass} flex-1 px-2 py-2 text-xs`} onClick={() => setRecommend(title)}>
                   Recommander
@@ -277,9 +421,20 @@ export function CatalogueView() {
         })}
       </div>
 
-      {!loading && sortedResults.length === 0 ? <p className="mt-10 text-sm text-zinc-500">Aucun titre pour ces filtres.</p> : null}
-      {sortedResults.length > 0 ? (
-        <button type="button" className={`${buttonClass} mt-8`} disabled={loading} onClick={() => search(page + 1, false)}>
+      {!loading && filteredAndSortedResults.length === 0 ? (
+        <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-center">
+          <p className="text-sm text-zinc-400">Aucun titre pour ces filtres.</p>
+          {hasActiveFilters ? (
+            <button type="button" onClick={resetFilters} className={`${ghostClass} mt-3 inline-flex items-center gap-1.5 text-xs`}>
+              <RotateCcw size={13} />
+              Réinitialiser les filtres
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {results.length > 0 ? (
+        <button type="button" className={`${buttonClass} mt-8`} disabled={loading} onClick={() => void search(page + 1, false)}>
           {loading ? "Recherche…" : "Plus de titres"}
         </button>
       ) : loading ? (

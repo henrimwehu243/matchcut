@@ -59,8 +59,10 @@ export function SwipeDeck() {
 
   const startX = useRef(0);
   const shown = useRef(new Set<string>());
-  const startedAt = useRef(new Date().toISOString());
+  const sessionStart = useRef(new Date(Date.now() - 10_000).toISOString());
   const fetchingRef = useRef(false);
+  const checkingMatchRef = useRef(new Set<string>());
+  const committingRef = useRef(false);
 
   const current = cards[index];
   const upcoming = cards[index + 1];
@@ -176,6 +178,21 @@ export function SwipeDeck() {
       fetchingRef.current = true;
       setLoading(true);
       try {
+        let tastePrefs: string[] = [];
+        if (typeof window !== "undefined") {
+          try {
+            const rawPrefs = window.localStorage.getItem(`matchcut_taste_prefs_${user.id}`);
+            if (rawPrefs) {
+              const parsed = JSON.parse(rawPrefs);
+              if (Array.isArray(parsed)) {
+                tastePrefs = parsed.map((item) => String(item).toLowerCase().split(" (")[0]);
+              }
+            }
+          } catch {
+            // ignore malformed local storage
+          }
+        }
+
         let swipeQuery = supabase.from("swipes").select("tmdb_id, media_type").eq("user_id", user.id);
         swipeQuery = groupId ? swipeQuery.eq("group_id", groupId) : swipeQuery.is("group_id", null);
         const { data: seen } = await swipeQuery;
@@ -302,7 +319,12 @@ export function SwipeDeck() {
               const key = `${candidate.mediaType}:${candidate.tmdbId}`;
               if (!seenKeys.has(key) && !priorityKeys.has(key) && !seenInBatch.has(key)) {
                 seenInBatch.add(key);
-                freshTmdb.push(candidate);
+                const labels = genreLabels(candidate.genreIds).map((g) => g.toLowerCase());
+                const haystack = `${candidate.title.toLowerCase()} ${labels.join(" ")}`;
+                const matchedPref = tastePrefs.find((pref) => pref && haystack.includes(pref));
+                freshTmdb.push(
+                  matchedPref ? { ...candidate, priorityReason: `Selon tes goûts` } : candidate,
+                );
               }
             }
             if (mIdx >= moviesList.length && sIdx >= showsList.length && aIdx >= animesList.length) break;
@@ -311,6 +333,8 @@ export function SwipeDeck() {
           currentPage += 1;
           if (freshTmdb.length >= 12) break;
         }
+
+        freshTmdb.sort((a, b) => (b.priorityReason ? 1 : 0) - (a.priorityReason ? 1 : 0));
 
         const combined = [...priorityCards, ...freshTmdb];
         setCards((prev) => {
@@ -332,12 +356,85 @@ export function SwipeDeck() {
     [formatFilter, groupId, user],
   );
 
+  const checkMatch = useCallback(
+    async (activeGroupId: string, title: Title) => {
+      if (!activeGroupId) return;
+      const lockKey = `${activeGroupId}:${title.mediaType}:${title.tmdbId}`;
+      if (checkingMatchRef.current.has(lockKey)) return;
+      checkingMatchRef.current.add(lockKey);
+
+      try {
+        const { data: members, error: memberError } = await supabase
+          .from("group_members")
+          .select("user_id")
+          .eq("group_id", activeGroupId);
+        if (memberError) {
+          setError(memberError.message);
+          return;
+        }
+
+        const memberIds = Array.from(new Set((members ?? []).map((row) => row.user_id as string)));
+        if (memberIds.length < 2) {
+          setProgress("Un match demande au moins deux membres.");
+          return;
+        }
+
+        const { data: likes, error: likeError } = await supabase
+          .from("swipes")
+          .select("user_id")
+          .eq("group_id", activeGroupId)
+          .eq("tmdb_id", title.tmdbId)
+          .eq("media_type", title.mediaType)
+          .eq("decision", "validate")
+          .in("user_id", memberIds);
+
+        if (likeError) {
+          setError(likeError.message);
+          return;
+        }
+
+        const likedIds = new Set((likes ?? []).map((row) => row.user_id as string));
+        const allValidated = memberIds.every((id) => likedIds.has(id));
+
+        if (!allValidated) {
+          setProgress(`${likedIds.size}/${memberIds.length} membres ont validé`);
+          return;
+        }
+
+        const { error: matchError } = await supabase.from("matches").insert({
+          group_id: activeGroupId,
+          tmdb_id: title.tmdbId,
+          media_type: title.mediaType,
+          title: title.title,
+          poster_path: title.posterPath,
+        });
+        if (matchError && matchError.code !== "23505") {
+          setError(matchError.message);
+          return;
+        }
+
+        setProgress(null);
+        reveal({
+          tmdbId: title.tmdbId,
+          mediaType: title.mediaType,
+          title: title.title,
+          posterPath: title.posterPath,
+        });
+      } finally {
+        checkingMatchRef.current.delete(lockKey);
+      }
+    },
+    [reveal],
+  );
+
   useEffect(() => {
     void loadGroups();
     void loadFriendActivity();
   }, [loadGroups, loadFriendActivity]);
 
   useEffect(() => {
+    sessionStart.current = new Date(Date.now() - 10_000).toISOString();
+    setProgress(null);
     void loadCards(1, true);
   }, [loadCards]);
 
@@ -349,32 +446,60 @@ export function SwipeDeck() {
 
   useEffect(() => {
     if (!groupId) return;
+
+    const handleSwipeEvent = (payload: { new: unknown }) => {
+      const row = payload.new as {
+        user_id?: string;
+        decision?: string;
+        tmdb_id?: number;
+        media_type?: "movie" | "tv";
+        title?: string;
+        poster_path?: string | null;
+      };
+      if (row.decision !== "validate" || !row.tmdb_id || !row.media_type) return;
+      void checkMatch(groupId, {
+        tmdbId: row.tmdb_id,
+        mediaType: row.media_type,
+        title: row.title || "Titre",
+        posterPath: row.poster_path ?? null,
+        overview: "",
+        year: "",
+        genreIds: [],
+        language: "",
+        anime: false,
+        popularity: 0,
+      });
+    };
+
     const channel = supabase
       .channel(`swipes-${groupId}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "swipes", filter: `group_id=eq.${groupId}` },
+        handleSwipeEvent,
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "swipes", filter: `group_id=eq.${groupId}` },
+        handleSwipeEvent,
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "matches", filter: `group_id=eq.${groupId}` },
         (payload) => {
-          const row = payload.new as {
-            user_id?: string;
-            decision?: string;
+          const m = payload.new as {
             tmdb_id?: number;
             media_type?: "movie" | "tv";
             title?: string;
             poster_path?: string | null;
           };
-          if (row.user_id === user?.id || row.decision !== "validate" || !row.tmdb_id || !row.media_type) return;
-          void checkMatch({
-            tmdbId: row.tmdb_id,
-            mediaType: row.media_type,
-            title: row.title || "Titre",
-            posterPath: row.poster_path ?? null,
-            overview: "",
-            year: "",
-            genreIds: [],
-            language: "",
-            anime: false,
-            popularity: 0,
+          if (!m.tmdb_id || !m.media_type) return;
+          setProgress(null);
+          reveal({
+            tmdbId: m.tmdb_id,
+            mediaType: m.media_type,
+            title: m.title || "Titre",
+            posterPath: m.poster_path ?? null,
           });
         },
       )
@@ -385,95 +510,61 @@ export function SwipeDeck() {
         .from("matches")
         .select("tmdb_id, media_type, title, poster_path")
         .eq("group_id", groupId)
-        .gt("created_at", startedAt.current)
+        .gt("created_at", sessionStart.current)
         .order("created_at", { ascending: false })
-        .limit(1);
-      const row = data?.[0];
-      if (!row) return;
-      reveal({
-        tmdbId: row.tmdb_id,
-        mediaType: row.media_type,
-        title: row.title,
-        posterPath: row.poster_path,
-      });
-    }, 6000);
+        .limit(3);
+      for (const row of data ?? []) {
+        reveal({
+          tmdbId: row.tmdb_id,
+          mediaType: row.media_type,
+          title: row.title,
+          posterPath: row.poster_path,
+        });
+      }
+    }, 4000);
 
     return () => {
       window.clearInterval(timer);
       void supabase.removeChannel(channel);
     };
-  }, [groupId, reveal, user?.id]);
-
-  async function checkMatch(title: Title) {
-    if (!groupId) return;
-    const { data: members, error: memberError } = await supabase.from("group_members").select("user_id").eq("group_id", groupId);
-    if (memberError) {
-      setError(memberError.message);
-      return;
-    }
-    const memberIds = (members ?? []).map((row) => row.user_id as string);
-    if (memberIds.length < 2) {
-      setProgress("Un match demande au moins deux membres.");
-      return;
-    }
-    const { data: likes, error: likeError } = await supabase
-      .from("swipes")
-      .select("user_id")
-      .eq("group_id", groupId)
-      .eq("tmdb_id", title.tmdbId)
-      .eq("media_type", title.mediaType)
-      .eq("decision", "validate");
-    if (likeError) {
-      setError(likeError.message);
-      return;
-    }
-    const liked = new Set((likes ?? []).map((row) => row.user_id as string));
-    if (!memberIds.every((id) => liked.has(id))) {
-      setProgress(`${liked.size}/${memberIds.length} membres ont validé`);
-      return;
-    }
-    const { error: matchError } = await supabase.from("matches").insert({
-      group_id: groupId,
-      tmdb_id: title.tmdbId,
-      media_type: title.mediaType,
-      title: title.title,
-      poster_path: title.posterPath,
-    });
-    if (matchError && matchError.code !== "23505") setError(matchError.message);
-    setProgress(null);
-    reveal({ tmdbId: title.tmdbId, mediaType: title.mediaType, title: title.title, posterPath: title.posterPath });
-  }
+  }, [checkMatch, groupId, reveal]);
 
   async function persist(title: Title, decision: "pass" | "validate") {
     if (!user) return;
+    const activeGroupId = groupId || null;
     const payload = {
       user_id: user.id,
-      group_id: groupId || null,
+      group_id: activeGroupId,
       tmdb_id: title.tmdbId,
       media_type: title.mediaType,
       title: title.title,
       poster_path: title.posterPath,
       decision,
     };
+
     let query = supabase
       .from("swipes")
       .select("id")
       .eq("user_id", user.id)
       .eq("tmdb_id", title.tmdbId)
       .eq("media_type", title.mediaType);
-    query = groupId ? query.eq("group_id", groupId) : query.is("group_id", null);
+    query = activeGroupId ? query.eq("group_id", activeGroupId) : query.is("group_id", null);
+
     const { data: existing, error: readError } = await query.maybeSingle();
     if (readError) {
       setError(readError.message);
       return;
     }
+
     const write = existing
       ? await supabase.from("swipes").update({ decision }).eq("id", existing.id)
       : await supabase.from("swipes").insert(payload);
-    if (write.error) {
+
+    if (write.error && write.error.code !== "23505") {
       setError(write.error.message);
       return;
     }
+
     if (decision === "validate") {
       const { data: item } = await supabase
         .from("watch_items")
@@ -482,6 +573,7 @@ export function SwipeDeck() {
         .eq("tmdb_id", title.tmdbId)
         .eq("media_type", title.mediaType)
         .maybeSingle();
+
       if (!item) {
         const { error: listError } = await supabase.from("watch_items").insert({
           user_id: user.id,
@@ -492,14 +584,20 @@ export function SwipeDeck() {
           year: title.year,
           status: "to_watch",
         });
-        if (listError) setError(listError.message);
+        if (listError && listError.code !== "23505") setError(listError.message);
       }
-      if (groupId) await checkMatch(title);
+
+      if (activeGroupId) {
+        await checkMatch(activeGroupId, title);
+      }
+    } else if (activeGroupId) {
+      setProgress(null);
     }
   }
 
   function commit(decision: "pass" | "validate") {
-    if (!current || leaving) return;
+    if (!current || leaving || committingRef.current) return;
+    committingRef.current = true;
     setLeaving(decision);
     setDx(decision === "pass" ? -560 : 560);
     const title = current;
@@ -508,12 +606,13 @@ export function SwipeDeck() {
       setDx(0);
       setLeaving(null);
       setProgress(null);
+      committingRef.current = false;
     }, 280);
     void persist(title, decision);
   }
 
   function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    if (leaving) return;
+    if (leaving || committingRef.current) return;
     setDragging(true);
     startX.current = event.clientX;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -534,7 +633,7 @@ export function SwipeDeck() {
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (inspectTitle) return;
+      if (inspectTitle || match) return;
       if (event.key === "ArrowLeft") commit("pass");
       if (event.key === "ArrowRight") commit("validate");
     }
@@ -564,7 +663,7 @@ export function SwipeDeck() {
           <label className="text-sm text-zinc-400">
             Groupe
             <select
-              className="mt-1.5 block w-48 border border-white/15 bg-[#09090b] px-3 py-2 text-sm text-zinc-100"
+              className="mt-1.5 block w-48 rounded-xl border border-white/15 bg-[#09090b] px-3 py-2 text-sm text-zinc-100"
               value={groupId}
               onChange={(event) => setGroupId(event.target.value)}
             >
@@ -583,7 +682,7 @@ export function SwipeDeck() {
                 key={pill.id}
                 type="button"
                 onClick={() => setFormatFilter(pill.id)}
-                className={`px-3 py-2 text-xs transition ${
+                className={`rounded-xl px-3 py-2 text-xs transition ${
                   formatFilter === pill.id
                     ? "bg-[#f4f1ea] font-semibold text-[#09090b]"
                     : "border border-white/15 text-zinc-300 hover:border-white/40"
@@ -601,13 +700,13 @@ export function SwipeDeck() {
       <div className="mt-8 flex flex-col items-center">
         <div className="relative h-[520px] w-[320px] max-w-full">
           {upcoming ? (
-            <div className="absolute inset-0 scale-[0.96] border border-white/10 opacity-40">
+            <div className="absolute inset-0 scale-[0.96] overflow-hidden rounded-2xl border border-white/10 opacity-40">
               <Poster path={upcoming.posterPath} alt="" className="h-full w-full" />
             </div>
           ) : null}
           {current ? (
             <div
-              className="absolute inset-0 cursor-grab overflow-hidden border border-white/10 bg-zinc-950 active:cursor-grabbing"
+              className="absolute inset-0 cursor-grab overflow-hidden rounded-2xl border border-white/10 bg-zinc-950 active:cursor-grabbing"
               style={{
                 transform: `translateX(${dx}px) rotate(${dx / 18}deg)`,
                 transition: dragging ? "none" : "transform 0.28s ease",
@@ -621,7 +720,7 @@ export function SwipeDeck() {
 
               <div className="absolute inset-x-3 top-3 flex items-center justify-between gap-2">
                 {current.priorityReason ? (
-                  <span className="inline-flex items-center gap-1 bg-emerald-500/90 px-2.5 py-1 text-[11px] font-semibold text-zinc-950 shadow">
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/90 px-2.5 py-1 text-[11px] font-semibold text-zinc-950 shadow">
                     <Sparkles size={12} />
                     {current.priorityReason}
                   </span>
@@ -635,7 +734,7 @@ export function SwipeDeck() {
                     e.stopPropagation();
                     setInspectTitle(current);
                   }}
-                  className="inline-flex items-center gap-1 border border-white/20 bg-black/80 px-2.5 py-1 text-[11px] font-medium text-[#f4f1ea] backdrop-blur hover:border-white/50"
+                  className="inline-flex items-center gap-1 rounded-lg border border-white/20 bg-black/80 px-2.5 py-1 text-[11px] font-medium text-[#f4f1ea] backdrop-blur hover:border-white/50"
                 >
                   <Info size={12} />
                   Infos &amp; avis
@@ -671,13 +770,13 @@ export function SwipeDeck() {
               ) : null}
             </div>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-4 border border-white/10 px-8 text-center text-sm leading-6 text-zinc-400">
+            <div className="flex h-full flex-col items-center justify-center gap-4 rounded-2xl border border-white/10 px-8 text-center text-sm leading-6 text-zinc-400">
               <p>{loading ? "Préparation de nouveaux titres…" : "Tu as parcouru tout ce paquet !"}</p>
               {!loading ? (
                 <button
                   type="button"
                   onClick={() => void loadCards(page, false)}
-                  className="inline-flex items-center gap-2 border border-white/25 bg-white/5 px-4 py-2 text-xs font-medium text-[#f4f1ea] hover:border-white/50"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/5 px-4 py-2 text-xs font-medium text-[#f4f1ea] hover:border-white/50"
                 >
                   <RefreshCw size={13} />
                   Charger la suite
@@ -719,7 +818,7 @@ export function SwipeDeck() {
               return (
                 <div
                   key={item.id}
-                  className="flex items-start justify-between gap-3 border border-white/10 bg-white/[0.02] p-3.5 text-sm"
+                  className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3.5 text-sm"
                 >
                   <div className="flex items-start gap-3">
                     <Link href={`/membre/${item.userId}`} className="shrink-0 hover:opacity-80">
@@ -771,17 +870,30 @@ export function SwipeDeck() {
 
       {match ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-6">
-          <div className="rise-in w-full max-w-md border border-white/10 bg-[#0e0e11] p-6 text-center">
+          <div className="rise-in w-full max-w-md rounded-2xl border border-white/10 bg-[#0e0e11] p-6 text-center">
             <p className="text-[11px] uppercase tracking-[0.32em] text-rose-300">Match</p>
             <h2 className="mt-3 font-serif text-5xl tracking-tight text-[#f4f1ea]">Le groupe est d’accord</h2>
-            <div className="mx-auto mt-6 h-72 w-48 overflow-hidden border border-white/10">
+            <div className="mx-auto mt-6 h-72 w-48 overflow-hidden rounded-xl border border-white/10">
               <Poster path={match.posterPath} alt={match.title} className="h-full w-full" />
             </div>
             <p className="mt-4 font-serif text-2xl text-[#f4f1ea]">{match.title}</p>
             <p className="mt-2 text-sm text-zinc-400">Tous les membres ont validé ce titre.</p>
-            <button type="button" className="mt-6 border border-white/20 px-5 py-2.5 text-sm" onClick={() => setMatch(null)}>
-              Continuer
-            </button>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/groupes"
+                onClick={() => setMatch(null)}
+                className="rounded-xl border border-white/20 px-4 py-2.5 text-sm text-zinc-200 hover:border-white/40"
+              >
+                Voir le groupe
+              </Link>
+              <button
+                type="button"
+                className="rounded-xl bg-[#f4f1ea] px-5 py-2.5 text-sm font-semibold text-[#09090b]"
+                onClick={() => setMatch(null)}
+              >
+                Continuer
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
